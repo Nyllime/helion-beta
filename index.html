@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#f6b800">
+  <title>Helion Beta</title>
+  <style>
+    *{box-sizing:border-box}
+    body{margin:0;font-family:Arial,Helvetica,sans-serif;background:#f8f5ec;color:#173127}
+    .wrap{min-height:100vh;display:grid;place-items:center;padding:24px}
+    .card{width:min(520px,100%);background:#fff;border-radius:24px;padding:28px;box-shadow:0 18px 55px #0002;text-align:center}
+    .sun{width:70px;height:70px;border-radius:50%;background:#f6b800;margin:0 auto 16px;box-shadow:0 0 0 10px #fff3bd}
+    h1{margin:0 0 8px;font-size:32px}
+    p{color:#6e7d76;line-height:1.5}
+    .bar{height:10px;background:#eee;border-radius:999px;overflow:hidden;margin-top:18px}
+    .bar span{display:block;height:100%;width:35%;background:#185f43;border-radius:999px;animation:load 1.2s infinite ease-in-out}
+    .err{display:none;margin-top:16px;padding:12px;background:#fff0ee;border-radius:12px;color:#8b2c28;font-size:14px}
+    button{border:0;border-radius:12px;padding:10px 14px;background:#185f43;color:#fff;font-weight:700;cursor:pointer;margin-top:10px}
+    @keyframes load{0%{transform:translateX(-110%)}100%{transform:translateX(300%)}}
+  </style>
+</head>
+<body>
+  <div class="wrap" id="loader">
+    <div class="card">
+      <div class="sun"></div>
+      <h1>Helion</h1>
+      <p>Carregando o sistema da loja...</p>
+      <div class="bar"><span></span></div>
+      <div class="err" id="err">Não foi possível carregar o Helion. Verifique a internet e tente novamente.<br><button onclick="location.reload()">Tentar novamente</button></div>
+    </div>
+  </div>
+<script>
+(async()=>{
+  try{
+    const r=await fetch('https://ytzkxyipnhjxkbadttag.supabase.co/functions/v1/helion-source?v=1',{cache:'no-store'});
+    if(!r.ok) throw new Error('Falha '+r.status);
+    const j=await r.json();
+    if(!j.html) throw new Error('Conteúdo vazio');
+    document.open();
+    document.write(j.html);
+    document.close();
+  }catch(e){
+    console.error(e);
+    document.getElementById('err').style.display='block';
+  }
+})();
+</script>
+</body>
+</html>
