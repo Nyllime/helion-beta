@@ -27,7 +27,7 @@
 @media(max-width:1050px){.home-grid{grid-template-columns:1fr}.kpi-grid{grid-template-columns:repeat(2,1fr)}.team-grid{grid-template-columns:1fr}}
 @media(max-width:760px){body{padding-bottom:72px}.sidebar{left:-250px;transition:.2s}.sidebar.open{left:0}.main{margin-left:0}.topbar{padding:8px 10px}.mobile-only{display:inline-grid;place-items:center}.desktop-install{display:none!important}.content{padding:14px 10px}.page-head{align-items:flex-start}.page-head h2{font-size:22px}.kpi-grid{grid-template-columns:1fr 1fr;gap:8px}.kpi{padding:12px}.kpi b{font-size:18px}.global-search{min-width:0}.user-button span:first-child{display:none}.bottom-nav{position:fixed;display:grid;grid-template-columns:repeat(5,1fr);left:0;right:0;bottom:0;height:66px;background:#fff;border-top:1px solid var(--line);z-index:30;padding-bottom:env(safe-area-inset-bottom)}.bottom-nav button{border:0;background:#fff;color:var(--muted);display:grid;place-items:center;font-size:17px;padding:5px}.bottom-nav button span{font-size:10px}.bottom-nav button.active{color:var(--green2)}.mobile-menu{position:fixed;inset:0;background:#0007;z-index:60;padding:20px;place-items:end center}.mobile-menu.show{display:grid}.mobile-menu-card{background:#fff;border-radius:18px;width:100%;padding:14px;max-height:80vh;overflow:auto}.mobile-menu-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}.mobile-menu-grid button{border:1px solid var(--line);background:#fff;border-radius:12px;padding:14px 8px;display:grid;gap:4px}.modal-back{padding:8px}.modal{border-radius:16px}.modal .form-grid,.form-grid{grid-template-columns:1fr}.modal .full,.form-grid .full{grid-column:auto}.sale-item{grid-template-columns:1fr 70px 90px}.sale-item .sale-item-total{display:none}.sale-item button{grid-column:3}.permissions-grid{grid-template-columns:1fr}.drawer{width:92vw}.row{gap:6px}}
 @media(max-width:430px){.kpi-grid{grid-template-columns:1fr 1fr}.page-head{gap:8px}.page-head>.row{justify-content:flex-end}.page-head .btn{padding:9px 10px}.global-search input{font-size:13px}}
-.repeat-row{display:flex;gap:8px;align-items:center;margin:8px 0}.repeat-row input,.repeat-row select{min-width:0;flex:1}.image-preview{max-width:100%;max-height:180px;object-fit:contain;border-radius:12px}.product-thumb{width:48px;height:48px;object-fit:cover;border-radius:8px;float:left;margin-right:8px}.help{font-size:12px;line-height:1.5;color:var(--muted)}.avatar img{width:100%;height:100%;border-radius:50%;object-fit:cover}.notice-body{white-space:pre-wrap}.family-card{padding:12px;background:#f4f7f5;border-radius:12px;margin:8px 0}#page-home{background-size:cover;background-position:center;padding:12px;border-radius:16px}#page-home>.page-head{background:#fffffff0;padding:12px;border-radius:12px}.notice-image{max-width:100%;max-height:240px;object-fit:contain}@media(max-width:760px){.repeat-row{flex-wrap:wrap}.repeat-row input,.repeat-row select{flex-basis:65%}}</style>
+.repeat-row{display:flex;gap:8px;align-items:center;margin:8px 0}.repeat-row input,.repeat-row select{min-width:0;flex:1}.image-preview{max-width:100%;max-height:180px;object-fit:contain;border-radius:12px}.product-thumb{width:48px;height:48px;object-fit:cover;border-radius:8px;float:left;margin-right:8px}.help{font-size:12px;line-height:1.5;color:var(--muted)}.avatar img{width:100%;height:100%;border-radius:50%;object-fit:cover}.notice-body{white-space:pre-wrap}.family-card{padding:12px;background:#f4f7f5;border-radius:12px;margin:8px 0}#page-home{background-size:cover;background-position:center;padding:12px;border-radius:16px}#page-home>.page-head{background:#fffffff0;padding:12px;border-radius:12px}.notice-image{max-width:100%;max-height:240px;object-fit:contain}@media(max-width:760px){.repeat-row{flex-wrap:wrap}.repeat-row input,.repeat-row select{flex-basis:65%}}.social-post{border:1px solid var(--line);border-radius:16px;overflow:hidden;background:#fff;cursor:pointer}.social-post:focus-visible{outline:3px solid var(--green2)}.post-image{width:100%;max-height:380px;object-fit:cover;display:block}.post-copy{padding:16px}.post-copy p{white-space:pre-wrap;line-height:1.6}#promotionPosts{max-height:720px;overflow-y:auto;padding-right:4px;scroll-snap-type:y proximity}.social-post{scroll-snap-align:start}#page-home>.page-head{min-height:160px;background-size:cover;background-position:center;align-items:center}#activitySummary{position:sticky;top:84px}.home-grid{grid-template-columns:minmax(0,1.35fr) minmax(250px,.85fr)}@media(max-width:760px){.home-grid{grid-template-columns:1fr}#activitySummary{position:static}#promotionPosts{max-height:580px}} </style>
   <title>Helion — Gestão online</title>
 </head>
 <body>
@@ -918,6 +918,45 @@ function importProducts(){
  };
 }
 $('#importProductsBtn').onclick=importProducts;
+
+
+function arrangeHome(){
+ const home=$('#page-home'),grid=$('.home-grid',home),left=$('.stack',grid),right=$('.stack',grid)[1],feed=$('#feedList').closest('article');
+ if(!$('#activitySummary')){
+ feed.insertAdjacentHTML('beforebegin','<article class="panel" id="activitySummary"><div class="panel-head"><div><h3>Atividades da loja</h3><p>Últimas atualizações da equipe.</p></div><span class="badge" id="activityCount">0</span></div><div id="activityLatest" class="help"></div><button class="panel-link" id="showActivities">Ver todas as atividades</button></article>');
+ right.prepend($('#activitySummary'));feed.remove();left.innerHTML='<article class="panel"><div class="panel-head"><div><h3>Promoções e novidades</h3><p>Posts da equipe e do Marketing.</p></div><button class="btn ghost" data-go="announcements">Ver avisos</button></div><div id="promotionPosts" class="stack"></div></article>';
+ $('#showActivities').onclick=()=>{showModal(modalHead('Atividades da loja')+'<div>'+$('#feedList').innerHTML+'</div>');};
+ // O histórico completo fica fora da tela, preservando as atualizações do painel.
+ const history=document.createElement('div');history.hidden=true;history.append(feed);home.append(history);
+ }
+}
+const beforeHomeFeed=renderFeed;
+renderFeed=function(){beforeHomeFeed();if($('#activityCount')){$('#activityCount').textContent=$('#feedList .feed-item').length;const latest=$('#feedList .feed-item');$('#activityLatest').textContent=latest?latest.innerText:'Nenhuma atividade registrada ainda.';}};
+const beforeAnnouncements=renderAnnouncements;
+renderAnnouncements=function(){
+ arrangeHome();beforeAnnouncements();$('#homeAnnouncements').hidden=true;
+ const posts=activeNotices().filter(a=>a.kind!=='fundo');
+ $('#promotionPosts').innerHTML=posts.length?posts.map(a=>'<article class="social-post" role="button" tabindex="0" data-open-post="'+a.id+'" aria-label="Abrir post: '+esc(a.title)+'">'+(safeImage(a.image_url)?'<img class="post-image" src="'+esc(safeImage(a.image_url))+'" alt="">':'')+'<div class="post-copy"><span class="badge">'+esc({aviso:'Novidade',promocao:'Promoção',reuniao:'Reunião'}[a.kind])+'</span><h3>'+esc(a.title)+'</h3><p>'+esc(a.body.length>180?a.body.slice(0,180)+'…':a.body)+'</p><span class="help">Clique para abrir o post completo</span></div></article>').join(''):empty('As promoções e novidades publicadas em Avisos aparecerão aqui.');
+ const bg=activeNotices().find(a=>a.kind==='fundo'),theme=bg?.theme||'verde',colors={verde:'#eaf1eb',dourado:'#f7efd5',azul:'#eaf1f8'};
+ const head=$('#page-home>.page-head');head.style.backgroundImage=bg&&safeImage(bg.image_url)?'linear-gradient(90deg,rgba(255,255,255,.94),rgba(255,255,255,.20)),url("'+safeImage(bg.image_url).replace(/"/g,'%22')+'")':'';
+ head.style.backgroundColor=colors[theme]||colors.verde;$('#page-home').style.backgroundColor=colors[theme]||colors.verde;
+ renderFeed();
+};
+const beforeOpenAnnouncement=openAnnouncement;
+openAnnouncement=function(id){
+ beforeOpenAnnouncement(id);if(!$('#noticeKind'))return;const a=(state.announcements||[]).find(a=>a.id===id)||{};
+ $('#noticeKind').closest('.form-grid').insertAdjacentHTML('beforeend','<label>Tema do painel inicial<select id="noticeTheme"><option value="verde">Verde natural</option><option value="dourado">Dourado solar</option><option value="azul">Azul claro</option></select></label><p class="help">O tema e a foto são aplicados quando o tipo escolhido é “Fundo do Início”. A foto é opcional.</p>');
+ $('#noticeTheme').value=a.theme||'verde';
+ $('#saveNotice').onclick=async()=>{
+ if($('#noticeImageStatus').dataset.busy==='true'){toast('Aguarde a imagem.');return;}
+ const payload={company_id:state.profile.company_id,title:$('#noticeTitle').value.trim(),body:$('#noticeBody').value.trim(),kind:$('#noticeKind').value,image_url:$('#noticeImageValue').value||null,starts_on:$('#noticeStart').value||null,ends_on:$('#noticeEnd').value||null,active:$('#noticeActive').value==='true',theme:$('#noticeTheme').value};
+ if(!payload.title){toast('Informe o título.');return;}if(payload.starts_on&&payload.ends_on&&payload.ends_on<payload.starts_on){toast('Confira o período.');return;}
+ $('#saveNotice').disabled=true;try{const{error}=await(id?db.from('announcements').update(payload).eq('id',id):db.from('announcements').insert(payload));if(error)throw error;closeModal();await loadAll();toast('Aviso salvo.');}catch(e){toast(e.message);if($('#saveNotice'))$('#saveNotice').disabled=false;}
+ };
+};
+function openPost(id){const a=activeNotices().find(a=>a.id===id);if(a)showModal(modalHead(a.title)+noticeCard(a));}
+document.addEventListener('click',e=>{const p=e.target.closest('[data-open-post]');if(p)openPost(p.dataset.openPost);});
+document.addEventListener('keydown',e=>{const p=e.target.closest('[data-open-post]');if(p&&(e.key==='Enter'||e.key===' ')){e.preventDefault();openPost(p.dataset.openPost);}});
 
 // O site abre diretamente no navegador. Remove somente o cache antigo do Helion.
 if ('serviceWorker' in navigator) {
