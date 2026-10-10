@@ -777,9 +777,9 @@ openClientModal=function(id){
 async function saveClient(id){
  const doc=$('#mClientDoc').value.trim(),birth=$('#mClientBirth').value,type=$('#mClientType').value;
  if(type==='PF'&&doc&&!validCPF(doc)){toast('CPF inválido. Confira os dígitos.');return;}if(!validBirth(birth)){toast('Confira a data de nascimento.');return;}
- const links=$('.family-row').map(r=>({client_id:$('.family-client',r).value,relation:$('.family-relation',r).value.trim()})).filter(x=>x.client_id);
+ const links=$$('.family-row').map(r=>({client_id:$('.family-client',r).value,relation:$('.family-relation',r).value.trim()})).filter(x=>x.client_id);
  if(new Set(links.map(l=>l.client_id)).size!==links.length){toast('Familiar duplicado.');return;}
- const payload={company_id:state.profile.company_id,type,name:$('#mClientName').value.trim(),nickname:$('#mClientNick').value.trim()||null,cpf_cnpj:doc||null,birth_date:birth||null,ie:$('#mClientIE').value.trim()||null,im:$('#mClientIM').value.trim()||null,phone:$('#mClientPhone').value.trim()||null,email:$('#mClientEmail').value.trim()||null,property_name:$('#mClientProperty').value.trim()||null,address:$('#mClientAddress').value.trim()||null,notes:$('#mClientNotes').value.trim()||null,extra_phones:$('.extra-phone').map(e=>e.value.trim()).filter(Boolean),extra_addresses:$('.extra-address').map(e=>e.value.trim()).filter(Boolean),family_links:links,updated_at:nowISO()};
+ const payload={company_id:state.profile.company_id,type,name:$('#mClientName').value.trim(),nickname:$('#mClientNick').value.trim()||null,cpf_cnpj:doc||null,birth_date:birth||null,ie:$('#mClientIE').value.trim()||null,im:$('#mClientIM').value.trim()||null,phone:$('#mClientPhone').value.trim()||null,email:$('#mClientEmail').value.trim()||null,property_name:$('#mClientProperty').value.trim()||null,address:$('#mClientAddress').value.trim()||null,notes:$('#mClientNotes').value.trim()||null,extra_phones:$$('.extra-phone').map(e=>e.value.trim()).filter(Boolean),extra_addresses:$$('.extra-address').map(e=>e.value.trim()).filter(Boolean),family_links:links,updated_at:nowISO()};
  if(!payload.name){toast('Informe o nome.');return;}$('#saveClientBtn').disabled=true;
  try{const{error}=await(id?db.from('clients').update(payload).eq('id',id):db.from('clients').insert(payload));if(error)throw error;closeModal();await loadAll();toast('Cliente salvo.');}catch(e){toast(e.message);if($('#saveClientBtn'))$('#saveClientBtn').disabled=false;}
 }
@@ -814,7 +814,7 @@ async function saveProduct(id){
  $('#saveProductBtn').disabled=true;try{const{error}=await(id?db.from('products').update(payload).eq('id',id):db.from('products').insert(payload));if(error)throw error;closeModal();await loadAll();toast('Produto salvo.');}catch(e){toast(e.message);if($('#saveProductBtn'))$('#saveProductBtn').disabled=false;}
 }
 const oldRenderProducts=renderProducts;
-renderProducts=function(){oldRenderProducts();const q=($('#productSearch')?.value||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');$('#productsBody tr[data-edit-product]').forEach(row=>{const p=state.products.find(p=>p.id===row.dataset.editProduct);row.hidden=!productSearchText(p).includes(q);row.children[1].innerHTML=(safeImage(p.image_url)?'<img class="product-thumb" src="'+esc(safeImage(p.image_url))+'" alt="">':'')+'<b>'+esc(p.name)+'</b><div class="help">'+esc(p.description||'')+'</div><div class="help">'+esc(profitText(Number(p.cost||0),Number(p.sale_price||0)))+'</div>';});};
+renderProducts=function(){oldRenderProducts();const q=($('#productSearch')?.value||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');$$('#productsBody tr[data-edit-product]').forEach(row=>{const p=state.products.find(p=>p.id===row.dataset.editProduct);row.hidden=!productSearchText(p).includes(q);row.children[1].innerHTML=(safeImage(p.image_url)?'<img class="product-thumb" src="'+esc(safeImage(p.image_url))+'" alt="">':'')+'<b>'+esc(p.name)+'</b><div class="help">'+esc(p.description||'')+'</div><div class="help">'+esc(profitText(Number(p.cost||0),Number(p.sale_price||0)))+'</div>';});};
 function canPublish(){return state.roleNames.includes('Gestor')||state.roleNames.includes('Marketing');}
 function activeNotices(){return(state.announcements||[]).filter(a=>a.active&&(!a.starts_on||a.starts_on<=todayISO())&&(!a.ends_on||a.ends_on>=todayISO()));}
 function noticeCard(a,manage=false){return '<article class="panel"><div class="panel-head"><div><span class="badge">'+esc({aviso:'Aviso',promocao:'Promoção',reuniao:'Reunião',fundo:'Fundo do Início'}[a.kind])+'</span><h3>'+esc(a.title)+'</h3></div>'+(manage&&canPublish()?'<button class="btn ghost" data-edit-announcement="'+a.id+'">Editar</button>':'')+'</div>'+(safeImage(a.image_url)?'<img class="notice-image" src="'+esc(safeImage(a.image_url))+'" alt="">':'')+'<p class="notice-body">'+esc(a.body)+'</p><div class="help">'+(a.starts_on?'Desde '+fmtDate(a.starts_on):'')+(a.ends_on?' • até '+fmtDate(a.ends_on):'')+(manage?(!a.active?' • Arquivado':activeNotices().some(x=>x.id===a.id)?' • Publicado':' • Fora do período'):'')+'</div></article>';}
@@ -897,7 +897,7 @@ function importProducts(){
  $('#importSheet').onchange=()=>{$('#importText').value=asCSV(Object.values(sheets)[Number($('#importSheet').value)]);map();};
  $('#mapImport').onclick=map;['importText','importHeader','importLocale','importUpdate'].forEach(id=>$('#'+id).addEventListener('input',invalidate));$('#importMapping').addEventListener('change',invalidate);
  $('#previewImport').onclick=()=>{
- invalidate();try{rows=parseCSV($('#importText').value);const header=Number($('#importHeader').value)-1,fields={};$('[data-import-field]').forEach(s=>{if(s.value!=='')fields[s.dataset.importField]=Number(s.value);});
+ invalidate();try{rows=parseCSV($('#importText').value);const header=Number($('#importHeader').value)-1,fields={};$$('[data-import-field]').forEach(s=>{if(s.value!=='')fields[s.dataset.importField]=Number(s.value);});
  if(fields.code===undefined||fields.name===undefined)throw new Error('Escolha as colunas Código e Nome.');if(new Set(Object.values(fields)).size!==Object.keys(fields).length)throw new Error('Escolha uma coluna diferente para cada campo.');
  if(rows.length-header-1>1000)throw new Error('Importe até 1.000 linhas por vez.');
  const updates=$('#importUpdate').checked,existing=new Map();state.products.forEach(p=>{if(p.code){const key=p.code.trim();if(existing.has(key))existing.set(key,null);else existing.set(key,p);}});
@@ -921,7 +921,7 @@ $('#importProductsBtn').onclick=importProducts;
 
 
 function arrangeHome(){
- const home=$('#page-home'),grid=$('.home-grid',home),left=$('.stack',grid),right=$('.stack',grid)[1],feed=$('#feedList').closest('article');
+ const home=$('#page-home'),grid=$('.home-grid',home),left=$('.stack',grid),right=$$('.stack',grid)[1],feed=$('#feedList').closest('article');
  if(!$('#activitySummary')){
  feed.insertAdjacentHTML('beforebegin','<article class="panel" id="activitySummary"><div class="panel-head"><div><h3>Atividades da loja</h3><p>Últimas atualizações da equipe.</p></div><span class="badge" id="activityCount">0</span></div><div id="activityLatest" class="help"></div><button class="panel-link" id="showActivities">Ver todas as atividades</button></article>');
  right.prepend($('#activitySummary'));feed.remove();left.innerHTML='<article class="panel"><div class="panel-head"><div><h3>Promoções e novidades</h3><p>Posts da equipe e do Marketing.</p></div><button class="btn ghost" data-go="announcements">Ver avisos</button></div><div id="promotionPosts" class="stack"></div></article>';
@@ -931,7 +931,7 @@ function arrangeHome(){
  }
 }
 const beforeHomeFeed=renderFeed;
-renderFeed=function(){beforeHomeFeed();if($('#activityCount')){$('#activityCount').textContent=$('#feedList .feed-item').length;const latest=$('#feedList .feed-item');$('#activityLatest').textContent=latest?latest.innerText:'Nenhuma atividade registrada ainda.';}};
+renderFeed=function(){beforeHomeFeed();if($('#activityCount')){$('#activityCount').textContent=$$('#feedList .feed-item').length;const latest=$('#feedList .feed-item');$('#activityLatest').textContent=latest?latest.innerText:'Nenhuma atividade registrada ainda.';}};
 const beforeAnnouncements=renderAnnouncements;
 renderAnnouncements=function(){
  arrangeHome();beforeAnnouncements();$('#homeAnnouncements').hidden=true;
