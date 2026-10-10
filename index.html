@@ -869,7 +869,7 @@ function numberImport(value,locale){
 }
 function loadScript(url){return new Promise((resolve,reject)=>{const s=document.createElement('script');s.src=url;s.onload=resolve;s.onerror=()=>reject(new Error('Não foi possível carregar o leitor de planilhas. Tente exportar CSV.'));document.head.append(s);});}
 async function fileRows(file){
- if(!file||file.size>15*1024*1024)throw new Error('Escolha um arquivo de até 15 MB.');
+ if(!file||file.size>60*1024*1024)throw new Error('Escolha um arquivo de até 60 MB.');
  const ext=file.name.split('.').pop().toLowerCase(),buffer=await file.arrayBuffer();
  if(ext==='csv'){let text=new TextDecoder('utf-8').decode(buffer);if(text.includes('\ufffd'))text=new TextDecoder('windows-1252').decode(buffer);return {CSV:parseCSV(text)};}
  if(['xls','xlsx'].includes(ext)){if(!window.XLSX)await loadScript('https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js');const book=window.XLSX.read(buffer,{type:'array'});return Object.fromEntries(book.SheetNames.map(n=>[n,window.XLSX.utils.sheet_to_json(book.Sheets[n],{header:1,raw:false,defval:''})]));}
@@ -878,19 +878,29 @@ async function fileRows(file){
  const pdf=await pdfjs.getDocument({data:new Uint8Array(buffer)}).promise;if(pdf.numPages>100)throw new Error('Use um PDF de até 100 páginas.');
  const rows=[];for(let n=1;n<=pdf.numPages;n++){const page=await pdf.getPage(n),text=await page.getTextContent();const lines=[];for(const item of text.items){if(!item.str?.trim())continue;let line=lines.find(l=>Math.abs(l.y-item.transform[5])<3);if(!line){line={y:item.transform[5],items:[]};lines.push(line);}line.items.push(item);}
  lines.sort((a,b)=>b.y-a.y);for(const line of lines){const cells=[];let current='',end=-Infinity;for(const item of line.items.sort((a,b)=>a.transform[4]-b.transform[4])){const x=item.transform[4];if(current&&x-end>12){cells.push(current.trim());current='';}current+=(current?' ':'')+item.str;end=x+item.width;}if(current)cells.push(current.trim());rows.push(cells);}}
- await pdf.destroy();if(!rows.some(r=>r.length>1))throw new Error('Não foi encontrada uma tabela de texto. PDF escaneado exige OCR. Exporte CSV ou XLS da Objetiva.');return {'PDF — conferir extração':rows};
+ await pdf.destroy();if(!rows.some(r=>r.length>1))throw new Error('Não foi encontrada uma tabela de texto. PDF escaneado exige OCR. Exporte CSV ou XLS da Objetiva.');const detected=parseObjetivaRows(rows);return detected?{'Objetiva — estoque por código':detected}:{'PDF — conferir extração':rows};
  }
  throw new Error('Formato não suportado. Use CSV, XLS, XLSX ou PDF.');
 }
-const importFields={code:'Código',name:'Nome do produto',description:'Descrição / finalidade',group_name:'Grupo',subgroup_name:'Subgrupo',brand:'Marca',unit:'Unidade',cost:'Custo',sale_price:'Preço de venda',min_stock:'Estoque mínimo',ideal_stock:'Estoque ideal'};
+function parseObjetivaRows(rows){
+const lines=rows.map(r=>r.join(' ').replace(/\s+/g,' ').trim());if(!lines.some(l=>/RELAT.RIO DE ESTOQUE/i.test(l)))return null;
+let group='',products=[],bad=[],total=null;
+const rx=/^(\d+)\s+(.+?)\s+(-?[\d.]+,\d{4})\s+(.+?)\s+(-?[\d.]+,\d+)%\s*(-?[\d.]+,\d{2})\s+(-?[\d.]+,\d{2})$/;
+for(const line of lines){const m=line.match(rx);if(m){products.push([m[1],m[2],m[3],m[4]==='-'?'':m[4].replace(/^\d+\s*-\s*/,''),m[6],m[7],group]);continue;}if(/^\d+\s*-\s*/.test(line)){if(!/ROBUSTA|AGROPECUARIA/i.test(line))group=line.replace(/^\d+\s*-\s*/,'');continue;}if(/^\d+\s+/.test(line))bad.push(line);if(/Total Geral/i.test(line)){const q=line.match(/Quantidade Total\s*:?\s*(-?[\d.]+,\d{2})/i);if(q)total=numberImport(q[1],'br');}}
+if(bad.length)throw new Error('Há '+bad.length+' linha(s) de produto não reconhecida(s). Nenhum dado será gravado.');
+if(!products.length)throw new Error('Relatório sem produtos reconhecidos.');
+const sum=products.reduce((n,r)=>n+numberImport(r[5],'br'),0);if(total!==null&&Math.abs(sum-total)>.01)throw new Error('Total de quantidades não confere com o relatório.');
+return [['Código','Nome','Custo','Marca','Preço de venda','Quantidade','Grupo'],...products];
+}
+const importFields={code:'Código',name:'Nome do produto',description:'Descrição / finalidade',group_name:'Grupo',subgroup_name:'Subgrupo',brand:'Marca',unit:'Unidade',cost:'Custo',sale_price:'Preço de venda',min_stock:'Estoque mínimo',ideal_stock:'Estoque ideal',quantity:'Quantidade em estoque'};
 function importProducts(){
- showModal(modalHead('Importar produtos da Objetiva','Confira a prévia antes de salvar no banco.')+'<p class="help">CSV, XLS/XLSX ou PDF com texto. Códigos são mantidos como texto. O estoque físico não é alterado por esta importação. PDFs escaneados não são reconhecidos.</p><label>Arquivo<input id="importFile" type="file" accept=".csv,.xls,.xlsx,.pdf"></label><p role="status" id="importStatus" class="help"></p><div id="importControls" hidden><div class="form-grid"><label>Planilha<select id="importSheet"></select></label><label>Linha do cabeçalho<input type="number" min="1" value="1" id="importHeader"></label><label>Formato dos números<select id="importLocale"><option value="br">Brasileiro: 1.234,56</option><option value="decimal">Decimal: 1,234.56</option></select></label></div><label>Dados extraídos (editáveis para corrigir o PDF ou a planilha)<textarea id="importText" rows="7"></textarea></label><button class="btn ghost" id="mapImport">Ler colunas</button><div id="importMapping" class="form-grid" style="margin-top:12px"></div><label class="permission-check" style="margin-top:12px"><input type="checkbox" id="importUpdate">Atualizar produtos que já têm o mesmo código (somente campos escolhidos)</label><button class="btn ghost" id="previewImport">Gerar prévia</button><div id="importPreview" class="table-wrap"></div><div class="actions"><button class="btn primary" id="confirmImport" disabled>Confirmar importação</button></div></div>',true);
+ showModal(modalHead('Importar produtos da Objetiva','Confira a prévia antes de salvar no banco.')+'<p class="help">CSV, XLS/XLSX ou PDF com texto. Códigos são mantidos como texto. Quantidade concilia o saldo do estoque. Produtos ausentes são preservados. Revise a data do relatório antes de confirmar. PDFs escaneados não são reconhecidos.</p><label>Arquivo<input id="importFile" type="file" accept=".csv,.xls,.xlsx,.pdf"></label><p role="status" id="importStatus" class="help"></p><div id="importControls" hidden><div class="form-grid"><label>Planilha<select id="importSheet"></select></label><label>Linha do cabeçalho<input type="number" min="1" value="1" id="importHeader"></label><label>Formato dos números<select id="importLocale"><option value="br">Brasileiro: 1.234,56</option><option value="decimal">Decimal: 1,234.56</option></select></label></div><label>Dados extraídos (editáveis para corrigir o PDF ou a planilha)<textarea id="importText" rows="7"></textarea></label><button class="btn ghost" id="mapImport">Ler colunas</button><div id="importMapping" class="form-grid" style="margin-top:12px"></div><label class="permission-check" style="margin-top:12px"><input type="checkbox" id="importUpdate">Atualizar produtos que já têm o mesmo código (somente campos escolhidos)</label><button class="btn ghost" id="previewImport">Gerar prévia</button><div id="importPreview" class="table-wrap"></div><div class="actions"><button class="btn primary" id="confirmImport" disabled>Confirmar importação</button></div></div>',true);
  let sheets={},rows=[],plan=null;const status=$('#importStatus'),confirm=$('#confirmImport');
  const invalidate=()=>{plan=null;confirm.disabled=true;$('#importPreview').innerHTML='';};
  const map=()=>{
  invalidate();try{rows=parseCSV($('#importText').value);const header=Number($('#importHeader').value)-1;if(!Number.isInteger(header)||header<0||header>=rows.length)throw new Error('Linha do cabeçalho inválida.');
  const names=rows[header],normalize=s=>String(s).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]/g,'');
- const synonyms={code:['codigo','cod','codproduto'],name:['nome','produto','descricao','nomeproduto'],description:['finalidade','descricaodetalhada','observacoes'],group_name:['grupo'],subgroup_name:['subgrupo'],brand:['marca'],unit:['unidade','un'],cost:['custo','precocusto','valorcusto'],sale_price:['venda','precovenda','precodevenda','valorvenda'],min_stock:['estoqueminimo','minimo'],ideal_stock:['estoqueideal','ideal']};
+ const synonyms={code:['codigo','cod','codproduto'],name:['nome','produto','descricao','nomeproduto'],description:['finalidade','descricaodetalhada','observacoes'],group_name:['grupo'],subgroup_name:['subgrupo'],brand:['marca'],unit:['unidade','un'],cost:['custo','precocusto','valorcusto'],sale_price:['venda','precovenda','precodevenda','valorvenda'],min_stock:['estoqueminimo','minimo'],ideal_stock:['estoqueideal','ideal'],quantity:['quantidade','saldo','estoque']};
  $('#importMapping').innerHTML=Object.entries(importFields).map(([key,label])=>'<label>'+label+'<select data-import-field="'+key+'"><option value="">Não importar</option>'+names.map((n,i)=>'<option value="'+i+'" '+((synonyms[key]||[]).includes(normalize(n))?'selected':'')+'>'+esc(n||'Coluna '+(i+1))+'</option>').join('')+'</select></label>').join('');status.textContent='Escolha as colunas e gere a prévia.';
  }catch(e){status.textContent=e.message;}
  };
@@ -904,13 +914,16 @@ function importProducts(){
  const updates=$('#importUpdate').checked,existing=new Map();state.products.forEach(p=>{if(p.code){const key=p.code.trim();if(existing.has(key))existing.set(key,null);else existing.set(key,p);}});
  const seen=new Set(),entries=[],skipped=[];
  rows.slice(header+1).filter(r=>r.some(v=>String(v).trim())).forEach((r,i)=>{
- const item={};for(const[key,col]of Object.entries(fields)){const raw=String(r[col]??'').trim();if(['cost','sale_price','min_stock','ideal_stock'].includes(key)){const n=numberImport(raw,$('#importLocale').value);if(n!==null)item[key]=n;}else if(raw)item[key]=raw;}
+ const item={};for(const[key,col]of Object.entries(fields)){const raw=String(r[col]??'').trim();if(['cost','sale_price','min_stock','ideal_stock','quantity'].includes(key)){const n=numberImport(raw,$('#importLocale').value);if(n!==null)item[key]=n;}else if(raw)item[key]=raw;}
  if(!item.code||!item.name)throw new Error('Linha '+(header+i+2)+': código e nome obrigatórios.');if(seen.has(item.code))throw new Error('Código duplicado no arquivo: '+item.code);seen.add(item.code);
  if(existing.has(item.code)&&existing.get(item.code)===null)throw new Error('Mais de um produto tem o código '+item.code+'. Corrija os cadastros antes de importar.');
- const old=existing.get(item.code);if(old&&!updates){skipped.push(item);return;}entries.push({...item,id:old?.id,company_id:state.profile.company_id});
+ const old=existing.get(item.code);if(old&&!updates){skipped.push(item);return;}entries.push({...item,id:old?.id,expected_quantity:old?(stockMap()[old.id]||0):0,company_id:state.profile.company_id});
  });
  if(!entries.length)throw new Error('Nenhum produto para importar. '+skipped.length+' já cadastrado(s), preservado(s).');
- plan=entries;$('#importPreview').innerHTML='<p>'+entries.filter(p=>!p.id).length+' novo(s), '+entries.filter(p=>p.id).length+' atualização(ões), '+skipped.length+' preservado(s). Mostrando até 30 linhas.</p><table><thead><tr><th>Ação</th><th>Código</th><th>Produto</th><th>Custo</th><th>Venda</th></tr></thead><tbody>'+entries.slice(0,30).map(p=>'<tr><td>'+(p.id?'Atualizar':'Novo')+'</td><td>'+esc(p.code)+'</td><td>'+esc(p.name)+'</td><td>'+(p.cost===undefined?'Preservar':money(p.cost))+'</td><td>'+(p.sale_price===undefined?'Preservar':money(p.sale_price))+'</td></tr>').join('')+'</tbody></table>';confirm.disabled=false;status.textContent='Revise os códigos, nomes e valores. A gravação só ocorre ao confirmar.';
+ const missing=state.products.filter(p=>!seen.has(p.code?.trim()));
+const change=p=>{if(!p.id)return 'Novo';const old=state.products.find(x=>x.id===p.id),parts=[];if(p.name!==old.name)parts.push('Nome: '+old.name+' → '+p.name);for(const k of ['cost','sale_price','quantity']){if(p[k]!==undefined){const before=k==='quantity'?p.expected_quantity:Number(old[k]||0);if(before!==p[k])parts.push((k==='quantity'?'Estoque':k==='cost'?'Custo':'Venda')+': '+before+' → '+p[k]);}}if(p.brand!==undefined&&p.brand!==old.brand)parts.push('Marca alterada');return parts.join('; ')||'Sem alterações';};
+plan=entries;$('#importPreview').innerHTML='<p>'+entries.filter(p=>!p.id).length+' novo(s), '+entries.filter(p=>p.id).length+' existente(s), '+skipped.length+' preservado(s). '+missing.length+' ausente(s) do arquivo, mantidos no Helion.</p><p>'+entries.filter(p=>p.quantity<0).length+' produto(s) com saldo negativo.</p><table><thead><tr><th>Comparação</th><th>Código</th><th>Produto</th><th>Venda</th><th>Quantidade</th></tr></thead><tbody>'+entries.map(p=>'<tr><td>'+esc(change(p))+'</td><td>'+esc(p.code)+'</td><td>'+esc(p.name)+'</td><td>'+(p.sale_price===undefined?'Preservar':money(p.sale_price))+'</td><td>'+(p.quantity===undefined?'Preservar':p.quantity)+'</td></tr>').join('')+'</tbody></table>';
+confirm.disabled=false;status.textContent='Revise os códigos, nomes e valores. A gravação só ocorre ao confirmar.';
  }catch(e){status.textContent=e.message;}
  };
  confirm.onclick=async()=>{
@@ -1026,3 +1039,4 @@ if ('caches' in window) caches.keys().then(keys => Promise.all(keys.filter(key =
 </script>
 </body>
 </html>
+
