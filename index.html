@@ -861,11 +861,11 @@ function parseCSV(text){
  if(quoted)throw new Error('CSV com aspas não fechadas.');row.push(v);if(row.some(v=>v.trim()))rows.push(row);return rows;
 }
 function asCSV(rows){return rows.map(r=>r.map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(';')).join('\n');}
-function numberImport(value,locale){
+function numberImport(value,locale,allowNegative=false){
  let s=String(value??'').trim().replace(/^R\$\s*/,'').replace(/\s/g,'');if(!s)return null;
  if(locale==='br'){if(!/^-?(?:\d{1,3}(?:\.\d{3})+|\d+)(?:,\d+)?$/.test(s))throw new Error('Número inválido no formato brasileiro: '+value);s=s.replace(/\./g,'').replace(',','.');}
  else {if(!/^-?(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?$/.test(s))throw new Error('Número inválido no formato decimal: '+value);s=s.replace(/,/g,'');}
- const n=Number(s);if(!Number.isFinite(n)||n<0)throw new Error('Valor negativo ou inválido: '+value);return n;
+ const n=Number(s);if(!Number.isFinite(n)||(!allowNegative&&n<0))throw new Error('Valor negativo ou inválido: '+value);return n;
 }
 function loadScript(url){return new Promise((resolve,reject)=>{const s=document.createElement('script');s.src=url;s.onload=resolve;s.onerror=()=>reject(new Error('Não foi possível carregar o leitor de planilhas. Tente exportar CSV.'));document.head.append(s);});}
 async function fileRows(file){
@@ -889,7 +889,7 @@ const rx=/^(\d+)\s+(.+?)\s+(-?[\d.]+,\d{4})\s+(.+?)\s+(-?[\d.]+,\d+)%\s*(-?[\d.]
 for(const line of lines){const m=line.match(rx);if(m){products.push([m[1],m[2],m[3],m[4]==='-'?'':m[4].replace(/^\d+\s*-\s*/,''),m[6],m[7],group]);continue;}if(/^\d+\s*-\s*/.test(line)){if(!/ROBUSTA|AGROPECUARIA/i.test(line))group=line.replace(/^\d+\s*-\s*/,'');continue;}if(/^\d+\s+/.test(line))bad.push(line);if(/Total Geral/i.test(line)){const q=line.match(/Quantidade Total\s*:?\s*(-?[\d.]+,\d{2})/i);if(q)total=numberImport(q[1],'br');}}
 if(bad.length)throw new Error('Há '+bad.length+' linha(s) de produto não reconhecida(s). Nenhum dado será gravado.');
 if(!products.length)throw new Error('Relatório sem produtos reconhecidos.');
-const sum=products.reduce((n,r)=>n+numberImport(r[5],'br'),0);if(total!==null&&Math.abs(sum-total)>.01)throw new Error('Total de quantidades não confere com o relatório.');
+const sum=products.reduce((n,r)=>n+numberImport(r[5],'br',true),0);if(total!==null&&Math.abs(sum-total)>.01)throw new Error('Total de quantidades não confere com o relatório.');
 return [['Código','Nome','Custo','Marca','Preço de venda','Quantidade','Grupo'],...products];
 }
 const importFields={code:'Código',name:'Nome do produto',description:'Descrição / finalidade',group_name:'Grupo',subgroup_name:'Subgrupo',brand:'Marca',unit:'Unidade',cost:'Custo',sale_price:'Preço de venda',min_stock:'Estoque mínimo',ideal_stock:'Estoque ideal',quantity:'Quantidade em estoque'};
@@ -914,7 +914,7 @@ function importProducts(){
  const updates=$('#importUpdate').checked,existing=new Map();state.products.forEach(p=>{if(p.code){const key=p.code.trim();if(existing.has(key))existing.set(key,null);else existing.set(key,p);}});
  const seen=new Set(),entries=[],skipped=[];
  rows.slice(header+1).filter(r=>r.some(v=>String(v).trim())).forEach((r,i)=>{
- const item={};for(const[key,col]of Object.entries(fields)){const raw=String(r[col]??'').trim();if(['cost','sale_price','min_stock','ideal_stock','quantity'].includes(key)){const n=numberImport(raw,$('#importLocale').value);if(n!==null)item[key]=n;}else if(raw)item[key]=raw;}
+ const item={};for(const[key,col]of Object.entries(fields)){const raw=String(r[col]??'').trim();if(['cost','sale_price','min_stock','ideal_stock','quantity'].includes(key)){const n=numberImport(raw,$('#importLocale').value,key==='quantity');if(n!==null)item[key]=n;}else if(raw)item[key]=raw;}
  if(!item.code||!item.name)throw new Error('Linha '+(header+i+2)+': código e nome obrigatórios.');if(seen.has(item.code))throw new Error('Código duplicado no arquivo: '+item.code);seen.add(item.code);
  if(existing.has(item.code)&&existing.get(item.code)===null)throw new Error('Mais de um produto tem o código '+item.code+'. Corrija os cadastros antes de importar.');
  const old=existing.get(item.code);if(old&&!updates){skipped.push(item);return;}entries.push({...item,id:old?.id,expected_quantity:old?(stockMap()[old.id]||0):0,company_id:state.profile.company_id});
