@@ -1,0 +1,16 @@
+{
+  "name": "Helion — Gestão Inteligente",
+  "short_name": "Helion",
+  "description": "Gestão inteligente para sua loja",
+  "id": "/helion-beta/",
+  "start_url": "/helion-beta/",
+  "scope": "/helion-beta/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#f5f4ef",
+  "theme_color": "#d9a514",
+  "categories": ["business","productivity"],
+  "icons": [
+    {"src":"./icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}
+  ]
+}
