@@ -42,6 +42,7 @@
       <label>Senha<input id="loginPassword" type="password" autocomplete="current-password" placeholder="Sua senha"></label>
       <button class="btn primary wide" id="loginBtn">Entrar</button>
 
+      <button type="button" class="btn ghost wide" id="forgotPasswordBtn">Esqueci a senha</button>
       <div id="loginError" class="form-error"></div>
       <small>Acesse pelo navegador, sem instalação.</small>
       <small>Os perfis dos funcionários são criados pelo Gestor dentro do Helion.</small>
@@ -957,6 +958,60 @@ openAnnouncement=function(id){
 function openPost(id){const a=activeNotices().find(a=>a.id===id);if(a)showModal(modalHead(a.title)+noticeCard(a));}
 document.addEventListener('click',e=>{const p=e.target.closest('[data-open-post]');if(p)openPost(p.dataset.openPost);});
 document.addEventListener('keydown',e=>{const p=e.target.closest('[data-open-post]');if(p&&(e.key==='Enter'||e.key===' ')){e.preventDefault();openPost(p.dataset.openPost);}});
+
+
+function showForgotPassword(){
+ const suggested=$('#loginUser').value.trim();
+ showModal(modalHead('Esqueci a senha','Solicite ajuda ao administrador da sua empresa.')+'<label>Seu usuário do Helion<input id="forgotLogin" autocomplete="username" maxlength="80" value="'+esc(suggested)+'"></label><p class="help">O Gestor receberá um aviso no Helion e poderá gerar uma senha temporária. Combine a entrega dessa senha pelo contato já cadastrado. Os endereços internos de login não recebem e-mails.</p><p id="forgotStatus" role="status" class="help"></p><div class="actions"><button class="btn primary" id="sendForgotRequest">Avisar administrador</button></div>');
+ $('#sendForgotRequest').onclick=async()=>{
+ const login=cleanLogin($('#forgotLogin').value);if(!login||login.length>80){$('#forgotStatus').textContent='Informe seu usuário do Helion.';return;}
+ const btn=$('#sendForgotRequest');btn.disabled=true;
+ try{const{error}=await db.rpc('request_helion_password_reset',{login});if(error)throw error;
+ $('#forgotStatus').textContent='Se este usuário estiver cadastrado e ativo, a solicitação será disponibilizada ao administrador. Aguarde o contato dele. Novos pedidos para o mesmo usuário têm intervalo de 15 minutos.';
+ }catch(e){$('#forgotStatus').textContent='Não foi possível enviar a solicitação. Tente novamente ou fale com o administrador.';btn.disabled=false;}
+ };
+}
+$('#forgotPasswordBtn').onclick=showForgotPassword;
+const beforeResetNotifications=notifications;
+notifications=function(){const n=beforeResetNotifications();if(state.roleNames.includes('Gestor')&&(state.resetRequests||[]).length)n.unshift({icon:'🔑',title:(state.resetRequests||[]).length+' solicitação(ões) de redefinição de senha',text:'Abra Equipe para verificar e atender.',page:'team'});return n;};
+function renderResetRequests(){
+ let root=$('#resetRequestPanel');
+ if(!root){$('#page-team .page-head').insertAdjacentHTML('afterend','<article class="panel" id="resetRequestPanel" style="margin-bottom:14px"><div class="panel-head"><div><h3>🔑 Solicitações de senha</h3><p>Confirme a identidade pelo contato já cadastrado antes de redefinir.</p></div></div><div id="resetRequestList"></div></article>');root=$('#resetRequestPanel');}
+ const requests=state.resetRequests||[];root.hidden=!state.roleNames.includes('Gestor')||!requests.length;
+ $('#resetRequestList').innerHTML=requests.map(r=>{const e=state.employees.find(e=>e.id===r.employee_id);return '<div class="list-row"><b>'+esc(e?.nickname||e?.full_name||'Funcionário')+'</b><div class="help">@'+esc(e?.login_label||'')+' • '+new Date(r.requested_at).toLocaleString('pt-BR')+'</div><div class="actions"><button class="btn primary" data-reset-employee="'+r.employee_id+'">Definir senha temporária</button><button class="btn ghost" data-dismiss-reset="'+r.employee_id+'">Encerrar solicitação</button></div></div>';}).join('');
+ renderNotifications();renderAttention();
+}
+async function fetchResetRequests(){
+ if(!state.profile||!state.roleNames.includes('Gestor')){state.resetRequests=[];return;}
+ const{data,error}=await db.from('password_reset_requests').select('*').eq('company_id',state.profile.company_id).eq('status','pending').order('requested_at',{ascending:false});
+ if(error){toast('Não foi possível carregar os pedidos de senha.');return;}state.resetRequests=data||[];renderResetRequests();
+}
+const beforeResetLoadAll=loadAll;
+loadAll=async function(){await beforeResetLoadAll();await fetchResetRequests();};
+setInterval(()=>{if(!document.hidden&&state.profile&&state.roleNames.includes('Gestor'))fetchResetRequests().catch(console.error);},30000);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden&&state.profile)fetchResetRequests().catch(console.error);});
+document.addEventListener('click',async e=>{
+ const el=e.target.closest('[data-dismiss-reset]');if(!el)return;el.disabled=true;
+ const{error}=await db.from('password_reset_requests').update({status:'resolved',resolved_at:nowISO()}).eq('employee_id',el.dataset.dismissReset).eq('company_id',state.profile.company_id);
+ if(error){toast(error.message);el.disabled=false;return;}await fetchResetRequests();toast('Solicitação encerrada.');
+});
+const beforeDeleteRoleModal=openRoleModal;
+openRoleModal=function(id){
+ beforeDeleteRoleModal(id);if(!id||!$('#saveRoleBtn'))return;
+ const role=(state.allRoles||[]).find(r=>r.id===id);if(!role)return;
+ const linked=state.employees.filter(e=>(e.employee_roles||[]).some(link=>link.role?.id===id));
+ const protectedRole=role.name==='Gestor';
+ $('#saveRoleBtn').parentElement.insertAdjacentHTML('afterbegin','<button type="button" class="btn danger" id="deleteRoleBtn" '+(protectedRole||linked.length?'disabled':'')+'>Excluir função</button>');
+ $('#saveRoleBtn').parentElement.insertAdjacentHTML('beforebegin','<p class="help" id="deleteRoleHelp">'+(protectedRole?'A função Gestor é protegida e não pode ser excluída.':linked.length?'Esta função está vinculada a '+linked.length+' funcionário(s). Edite os funcionários e retire esse vínculo antes de excluir.':'Você pode excluir esta função após confirmar. Os funcionários não serão excluídos.')+'</p>');
+ $('#deleteRoleBtn').onclick=()=>{
+ showModal(modalHead('Excluir função')+'<p>Excluir a função <strong>'+esc(role.name)+'</strong>?</p><p class="help">Esta ação é definitiva. Nenhum funcionário será excluído. A função não pode ter funcionários vinculados.</p><div class="actions"><button class="btn ghost" id="cancelDeleteRole">Cancelar</button><button class="btn danger" id="confirmDeleteRole">Confirmar exclusão</button></div>');
+ $('#cancelDeleteRole').onclick=()=>openRoleModal(id);
+ $('#confirmDeleteRole').onclick=async()=>{
+ const btn=$('#confirmDeleteRole');btn.disabled=true;
+ try{const{data,error}=await db.from('roles').delete().eq('id',id).eq('company_id',state.profile.company_id).select('id');if(error)throw error;if(!data?.length)throw new Error('A função não foi excluída. Confira seu acesso.');closeModal();await loadAll();toast('Função excluída.');}catch(e){toast(e.message);btn.disabled=false;}
+ };
+ };
+};
 
 // O site abre diretamente no navegador. Remove somente o cache antigo do Helion.
 if ('serviceWorker' in navigator) {
