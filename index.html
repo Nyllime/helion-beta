@@ -1477,6 +1477,12 @@ pwRenderMaterials=function(){patternWorklistRender();const root=$('#pwMaterialsB
 // Server-backed authorization. Codes are never stored in browser storage or audit payloads.
 function canSeeCosts(){return state.roleNames?.some(r=>r==='Gestor'||r==='Administração')===true;}
 function isDiscountManager(){return state.roleNames?.includes('Gestor')===true;}
+// Explicit role permissions replace the default preset, matching the database rule.
+const securityFeatureBefore=hasFeature;hasFeature=function(feature){
+ if(['home','agenda','announcements','pos','cash','reports'].includes(feature))return securityFeatureBefore(feature);
+ if(isDiscountManager())return true;
+ return (state.roles||[]).some(role=>{const p=role.permissions||{};return p.all===true||p[feature]===true||(Object.keys(p).length===0&&(basePermissions[role.name]||[]).includes(feature));});
+};
 const securityTables=new Set(['products','product_lots','sale_items','budget_items','project_items','projects','budgets','helion_versions','project_changes','commercial_templates','audit_logs','project_expenses']);
 let securityReadCache=new Map();
 const securityFrom=db.from.bind(db);
@@ -1535,6 +1541,7 @@ function costVisibility(){if(canSeeCosts())return;
  for(const id of ['productProfit','prodProfitVisible']){const e=$('#'+id);if(e){e.hidden=true;e.textContent='';}}
  const c=$('#mProdCost');if(c){c.value='0';c.closest('label').hidden=true;}
  const p=$('#mProdPrice');if(p){p.readOnly=true;p.title='Administração e Gestor alteram o preço de catálogo.';}
+ $$('#page-products .page-head button').filter(e=>/Importar da Objetiva|\+ Produto/.test(e.textContent)).forEach(e=>e.hidden=true);
  $$('#pwSummary>div').filter(e=>/^(Custo|Lucro|Margem)/.test(e.textContent.trim())).forEach(e=>e.remove());
  $$('[data-pw-field="unit_cost"]').forEach(e=>{e.closest('td').hidden=true;});
  $$('[data-extra-field="unit_cost"]').forEach(e=>{e.closest('label').hidden=true;});
