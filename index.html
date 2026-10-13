@@ -1479,7 +1479,9 @@ function canSeeCosts(){return state.roleNames?.some(r=>r==='Gestor'||r==='Admini
 function isDiscountManager(){return state.roleNames?.includes('Gestor')===true;}
 // Explicit role permissions replace the default preset, matching the database rule.
 const securityFeatureBefore=hasFeature;hasFeature=function(feature){
- if(['home','agenda','announcements','pos','cash','reports'].includes(feature))return securityFeatureBefore(feature);
+ if(feature==='pos')return hasFeature('sales');
+ if(feature==='cash')return isDiscountManager()||(state.roles||[]).some(role=>{const p=role.permissions||{};return p.all===true||p.cash===true||(Object.keys(p).length===0&&['Caixa','Administração'].includes(role.name));});
+ if(['home','agenda','announcements','reports'].includes(feature))return securityFeatureBefore(feature);
  if(isDiscountManager())return true;
  return (state.roles||[]).some(role=>{const p=role.permissions||{};return p.all===true||p[feature]===true||(Object.keys(p).length===0&&(basePermissions[role.name]||[]).includes(feature));});
 };
@@ -1555,6 +1557,8 @@ function costVisibility(){if(canSeeCosts())return;
 }
 const secureWorkspaceDefault=workspaceDefault;workspaceDefault=function(...args){const w=secureWorkspaceDefault(...args);if(!canSeeCosts()){w.items.forEach(i=>i.unit_cost=0);w.extras.forEach(i=>i.unit_cost=0);}return w;};
 const secureProfitText=profitText;profitText=function(...args){return canSeeCosts()?secureProfitText(...args):'';};
+const secureProductColumns=readProductColumns;readProductColumns=function(){const cols=secureProductColumns();return canSeeCosts()?cols:cols.filter(c=>c!=='cost');};
+const secureShowModal=showModal;showModal=function(...args){secureShowModal(...args);if(!canSeeCosts())$('[data-product-column="cost"]')?.closest('label')?.remove();};
 for(const [read,assign] of [[()=>renderProducts,f=>renderProducts=f],[()=>openProductModal,f=>openProductModal=f],[()=>pwRefreshTotals,f=>pwRefreshTotals=f],[()=>pwRenderMaterials,f=>pwRenderMaterials=f],[()=>pwRenderExtras,f=>pwRenderExtras=f],[()=>openProjectWorkspace,f=>openProjectWorkspace=f],[()=>viewDocument,f=>viewDocument=f],[()=>showDocumentPrint,f=>showDocumentPrint=f]]){
  const original=read();assign(function(...args){const result=original(...args);costVisibility();return result;});
 }
