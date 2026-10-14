@@ -1755,18 +1755,18 @@ prepareProjectWorkspace=function(){
   if(plan)plan.hidden=!materialView;
   if(toolbars[0])toolbars[0].hidden=key!=='products';
   if(toolbars[1])toolbars[1].hidden=key!=='models';
-  if(finance)finance.hidden=key!=='costs'&&key!=='summary';
+  if(finance){finance.hidden=key!=='costs'&&key!=='summary';finance.dataset.projectTab=key;}
   if(adjustments)adjustments.hidden=key!=='summary';
   if(extras)extras.hidden=key!=='costs';
   if(summary)summary.hidden=key!=='summary';
   if(notes)notes.hidden=key!=='summary';
   const breadcrumb=modal.querySelector('.breadcrumb');if(breadcrumb)breadcrumb.hidden=true;
-  modal.querySelector('.modal-body')?.scrollTo({top:0,behavior:'smooth'});
+  modal.scrollTo({top:0,behavior:'smooth'});
  };
  tabs.querySelectorAll('button').forEach(b=>b.onclick=()=>choose(b.dataset.projectTab));
- choose('products');
+ choose('products');modal.scrollTo({top:0});
 };
-const projectSimpleStyle=document.createElement('style');projectSimpleStyle.textContent=`.project-workspace-menu{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;padding:8px 0 14px}.project-workspace-menu button{min-height:42px}.pw-identification[hidden],.pw-card[hidden],.pw-financial[hidden],.pw-financial>*[hidden],.pw-toolbar[hidden]{display:none!important}.project-header-summary{position:sticky;top:0;z-index:5}.project-workspace-menu{position:sticky;top:72px;z-index:4;background:#fff;padding-top:8px}.pw-edit-actions{position:sticky;bottom:0;z-index:5;background:#fff;padding:10px 0;border-top:1px solid var(--line)}@media(max-width:760px){.project-workspace-menu{grid-template-columns:repeat(2,minmax(0,1fr));top:0}.project-header-summary{position:static}}`;document.head.append(projectSimpleStyle);
+const projectSimpleStyle=document.createElement('style');projectSimpleStyle.textContent=`.project-workspace-menu{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;padding:8px 0 14px}.project-workspace-menu button{min-height:42px}.pw-identification[hidden],.pw-card[hidden],.pw-financial[hidden],.pw-financial>*[hidden],.pw-toolbar[hidden]{display:none!important}.project-header-summary{position:sticky;top:0;z-index:5}.project-workspace-menu{position:sticky;top:72px;z-index:4;background:#fff;padding-top:8px}.pw-financial[data-project-tab="costs"]{grid-template-columns:minmax(0,1fr)}.pw-financial[data-project-tab="summary"]{grid-template-columns:repeat(2,minmax(0,1fr))}.pw-edit-actions{position:sticky;bottom:0;z-index:5;background:#fff;padding:10px 0;border-top:1px solid var(--line)}@media(max-width:760px){.project-workspace-menu{grid-template-columns:repeat(2,minmax(0,1fr));top:0}.project-header-summary{position:static}.pw-financial[data-project-tab="summary"]{grid-template-columns:minmax(0,1fr)}}`;document.head.append(projectSimpleStyle);
 
 // O site abre diretamente no navegador. Remove somente o cache antigo do Helion.
 if ('serviceWorker' in navigator) {
