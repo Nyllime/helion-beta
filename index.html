@@ -48,6 +48,95 @@ body{font-size:14px}button,a,input,select,textarea{-webkit-tap-highlight-color:t
 </style>
 <style>.login-password-wrap{position:relative;display:block;width:100%}.login-password-wrap input{padding-right:48px}.password-visibility-toggle{position:absolute;right:5px;top:50%;transform:translateY(-50%);width:38px;height:38px;border:0;border-radius:9px;background:transparent;color:#61766a;display:grid;place-items:center}.password-visibility-toggle:hover,.password-visibility-toggle:focus-visible{background:#edf5ef;color:#145b39;outline:2px solid #78a28d;outline-offset:1px}.password-visibility-toggle svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}</style>
   <title>Helion — Gestão online</title>
+
+<style id="helion-semantic-color-system">
+:root {
+  --module-agenda: #8254bd; --module-agenda-soft: #f4eefb;
+  --module-sales: #287dc3; --module-sales-soft: #edf5fc;
+  --module-orders: #078d91; --module-orders-soft: #eaf7f7;
+  --module-clients: #7953bd; --module-clients-soft: #f2eef9;
+  --module-products: #15865e; --module-products-soft: #edf7f1;
+  --module-field: #c97819; --module-field-soft: #fff5e8;
+  --module-budgets: #5267bb; --module-budgets-soft: #eff2fb;
+  --module-projects: #21814d; --module-projects-soft: #edf7ef;
+  --module-finance: #b87b11; --module-finance-soft: #fff7e8;
+  --module-fiscal: #337d99; --module-fiscal-soft: #edf6f9;
+  --module-team: #7555b2; --module-team-soft: #f3effa;
+  --module-announcements: #bd5577; --module-announcements-soft: #fcf0f4;
+  --module-settings: #5e7188; --module-settings-soft: #f1f4f8;
+}
+#page-agenda { --module-accent: var(--module-agenda); --module-soft: var(--module-agenda-soft); }
+#page-sales { --module-accent: var(--module-sales); --module-soft: var(--module-sales-soft); }
+#page-orders { --module-accent: var(--module-orders); --module-soft: var(--module-orders-soft); }
+#page-clients { --module-accent: var(--module-clients); --module-soft: var(--module-clients-soft); }
+#page-products { --module-accent: var(--module-products); --module-soft: var(--module-products-soft); }
+#page-field { --module-accent: var(--module-field); --module-soft: var(--module-field-soft); }
+#page-budgets { --module-accent: var(--module-budgets); --module-soft: var(--module-budgets-soft); }
+#page-projects { --module-accent: var(--module-projects); --module-soft: var(--module-projects-soft); }
+#page-finance { --module-accent: var(--module-finance); --module-soft: var(--module-finance-soft); }
+#page-fiscal { --module-accent: var(--module-fiscal); --module-soft: var(--module-fiscal-soft); }
+#page-team { --module-accent: var(--module-team); --module-soft: var(--module-team-soft); }
+#page-announcements { --module-accent: var(--module-announcements); --module-soft: var(--module-announcements-soft); }
+#page-settings { --module-accent: var(--module-settings); --module-soft: var(--module-settings-soft); }
+
+.page:not(#page-home) .page-head {
+  border-left: 4px solid var(--module-accent, #00874b);
+  padding-left: 12px;
+}
+.page:not(#page-home) .page-head h2::before {
+  content: ""; display: inline-block; width: 9px; height: 9px;
+  flex: 0 0 9px; border-radius: 50%;
+  background: var(--module-accent, #00874b);
+  box-shadow: 0 0 0 4px var(--module-soft, #edf7f1);
+  margin-right: 2px;
+}
+.page:not(#page-home) .page-head .btn.primary {
+  background: var(--module-accent, #00874b);
+  box-shadow: 0 2px 5px color-mix(in srgb, var(--module-accent, #00874b) 18%, transparent);
+}
+.page:not(#page-home) .page-head .btn.primary:hover { filter: brightness(.94); }
+.sidebar nav button[data-page] > span {
+  min-width: 30px; height: 30px; border-radius: 8px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: #ffffff12;
+}
+.sidebar nav button[data-page="agenda"] > span { color: #d6b7ff; }
+.sidebar nav button[data-page="sales"] > span { color: #9bceff; }
+.sidebar nav button[data-page="orders"] > span { color: #89e1de; }
+.sidebar nav button[data-page="clients"] > span { color: #d5baff; }
+.sidebar nav button[data-page="products"] > span { color: #8ce0b5; }
+.sidebar nav button[data-page="field"] > span { color: #ffd08a; }
+.sidebar nav button[data-page="budgets"] > span { color: #b8c6ff; }
+.sidebar nav button[data-page="projects"] > span { color: #9de6b6; }
+.sidebar nav button[data-page="finance"] > span { color: #ffd286; }
+.sidebar nav button[data-page="fiscal"] > span { color: #9dd9e8; }
+.sidebar nav button[data-page="team"] > span { color: #d3baff; }
+.sidebar nav button[data-page="announcements"] > span { color: #ffb6cc; }
+.sidebar nav button[data-page="settings"] > span { color: #becbd9; }
+
+#page-products .kpi-grid.compact article:nth-child(1) { background: #eaf7f0; }
+#page-products .kpi-grid.compact article:nth-child(1) b { color: #087b49; }
+#page-products .kpi-grid.compact article:nth-child(2) { background: #fff5df; }
+#page-products .kpi-grid.compact article:nth-child(2) b { color: #a96c06; }
+#page-products .kpi-grid.compact article:nth-child(3) { background: #fff0ef; }
+#page-products .kpi-grid.compact article:nth-child(3) b { color: #c13d3a; }
+#page-products .kpi-grid.compact article:nth-child(4) { background: #edf4ff; }
+#page-products .kpi-grid.compact article:nth-child(4) b { color: #2769b3; }
+#page-finance .kpi-grid.compact article:nth-child(1) { background: #eaf7f0; }
+#page-finance .kpi-grid.compact article:nth-child(1) b { color: #087b49; }
+#page-finance .kpi-grid.compact article:nth-child(2) { background: #fff0ef; }
+#page-finance .kpi-grid.compact article:nth-child(2) b { color: #c13d3a; }
+#page-finance .kpi-grid.compact article:nth-child(3) { background: #edf4ff; }
+#page-finance .kpi-grid.compact article:nth-child(3) b { color: #2769b3; }
+#page-finance .kpi-grid.compact article:nth-child(4) { background: #fff5df; }
+#page-finance .kpi-grid.compact article:nth-child(4) b { color: #a96c06; }
+
+@media (max-width: 760px) {
+  .page:not(#page-home) .page-head { border-left-width: 3px; padding-left: 9px; }
+  .sidebar nav button[data-page] > span { min-width: 28px; height: 28px; }
+}
+</style>
+
 </head>
 <body>
   <div id="toast" class="toast"></div>
