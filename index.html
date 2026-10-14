@@ -1736,6 +1736,38 @@ function prepareProjectWorkspace(){
 openProjectWorkspace=function(...args){if((args[0]||'project')==='project'&&!args[1]&&!args[2])return beginProjectWithDetails(args);projectWorkspaceEntry(...args);setTimeout(prepareProjectWorkspace,0);};
 const projectFlowStyle=document.createElement('style');projectFlowStyle.textContent=`.project-start-client{padding:13px 0}.project-start-client h4{margin:0 0 8px}.project-start-results{display:grid;gap:6px;max-height:170px;overflow:auto;margin-top:7px}.project-start-result{display:block;width:100%;padding:9px 12px;text-align:left;background:#fff;border:1px solid var(--line);border-radius:9px}.project-start-result small{display:block;margin-top:3px}.project-start-result.selected{border-color:#168448;background:#eef9ed}.project-header-summary{display:grid;grid-template-columns:1fr 1.5fr 1fr auto;gap:14px;align-items:center;margin:12px 0;padding:14px;border:1px solid var(--line);border-radius:12px;background:#f7faf8}.project-header-summary>div>*{display:block}.project-header-summary small{color:var(--muted);font-size:11px}.project-header-summary #projectHeaderAddress{margin-top:4px}.project-workspace-menu{display:flex;gap:8px;overflow:auto;padding:3px 0 13px;position:sticky;top:48px;z-index:4;background:#fff}.project-workspace-menu button{white-space:nowrap;border:1px solid var(--line);background:#f6f8f7;border-radius:9px;padding:10px 14px;color:var(--green);font-weight:700}.project-workspace-menu button.active{background:var(--green2);border-color:var(--green2);color:white}.pw-identification:not([hidden]){margin-top:14px}@media(max-width:760px){.project-header-summary{grid-template-columns:1fr 1fr}.project-header-summary button{grid-column:1/-1}.project-workspace-menu{top:0}.project-header-summary{gap:9px;padding:10px}}`;document.head.append(projectFlowStyle);
 
+const prepareProjectWorkspaceDetailed=prepareProjectWorkspace;
+prepareProjectWorkspace=function(){
+ prepareProjectWorkspaceDetailed();
+ const modal=$('#pwName')?.closest('.modal');if(!modal)return;
+ const tabs=modal.querySelector('.project-workspace-menu');if(!tabs)return;
+ tabs.innerHTML='<button type="button" data-project-tab="products">Produtos</button><button type="button" data-project-tab="models">Grupos e modelos</button><button type="button" data-project-tab="costs">Serviços e gastos</button><button type="button" data-project-tab="summary">Resumo financeiro</button>';
+ const plan=Array.from(modal.querySelectorAll('.pw-card')).find(x=>x.querySelector('h3')?.textContent.includes('Planilha de materiais'));
+ const finance=modal.querySelector('.pw-financial');
+ const adjustments=finance?.children[0],extras=finance?.children[1],summary=finance?.children[2];
+ const notes=Array.from(modal.querySelectorAll('.pw-card')).find(x=>x.querySelector('h3')?.textContent==='Observações');
+ const toolbars=plan?.querySelectorAll('.pw-toolbar')||[];
+ if(plan){const heading=plan.querySelector('h3');if(heading)heading.textContent='Materiais do projeto';}
+ if(extras){const title=extras.querySelector('h3');if(title)title.textContent='Serviços e gastos extras';}
+ const choose=key=>{
+  tabs.querySelectorAll('button').forEach(b=>{const active=b.dataset.projectTab===key;b.classList.toggle('active',active);b.setAttribute('aria-current',active?'step':'false');});
+  const materialView=key==='products'||key==='models';
+  if(plan)plan.hidden=!materialView;
+  if(toolbars[0])toolbars[0].hidden=key!=='products';
+  if(toolbars[1])toolbars[1].hidden=key!=='models';
+  if(finance)finance.hidden=key!=='costs'&&key!=='summary';
+  if(adjustments)adjustments.hidden=key!=='summary';
+  if(extras)extras.hidden=key!=='costs';
+  if(summary)summary.hidden=key!=='summary';
+  if(notes)notes.hidden=key!=='summary';
+  const breadcrumb=modal.querySelector('.breadcrumb');if(breadcrumb)breadcrumb.hidden=true;
+  modal.querySelector('.modal-body')?.scrollTo({top:0,behavior:'smooth'});
+ };
+ tabs.querySelectorAll('button').forEach(b=>b.onclick=()=>choose(b.dataset.projectTab));
+ choose('products');
+};
+const projectSimpleStyle=document.createElement('style');projectSimpleStyle.textContent=`.project-workspace-menu{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;padding:8px 0 14px}.project-workspace-menu button{min-height:42px}.pw-identification[hidden],.pw-card[hidden],.pw-financial[hidden],.pw-financial>*[hidden],.pw-toolbar[hidden]{display:none!important}.project-header-summary{position:sticky;top:0;z-index:5}.project-workspace-menu{position:sticky;top:72px;z-index:4;background:#fff;padding-top:8px}.pw-edit-actions{position:sticky;bottom:0;z-index:5;background:#fff;padding:10px 0;border-top:1px solid var(--line)}@media(max-width:760px){.project-workspace-menu{grid-template-columns:repeat(2,minmax(0,1fr));top:0}.project-header-summary{position:static}}`;document.head.append(projectSimpleStyle);
+
 // O site abre diretamente no navegador. Remove somente o cache antigo do Helion.
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.getRegistrations().then(registrations => {
