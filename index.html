@@ -1760,7 +1760,7 @@ prepareProjectWorkspace=function(){
   if(extras)extras.hidden=key!=='costs';
   if(summary)summary.hidden=key!=='summary';
   if(notes)notes.hidden=key!=='summary';
-  const breadcrumb=modal.querySelector('.breadcrumb');if(breadcrumb)breadcrumb.hidden=true;
+  const breadcrumb=modal.querySelector('.breadcrumb,.project-context');if(breadcrumb)breadcrumb.hidden=true;
   modal.scrollTo({top:0,behavior:'smooth'});
  };
  tabs.querySelectorAll('button').forEach(b=>b.onclick=()=>choose(b.dataset.projectTab));
