@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="no-referrer"><title>Helion — Conferir e assinar</title>
+<style>body{margin:0;background:#f4f8f5;color:#183629;font:15px system-ui}main{max-width:900px;margin:24px auto;background:white;border:1px solid #dce7df;border-radius:16px;padding:24px}h1{font-size:24px;color:#08743c}label{display:block;margin:15px 0}input[type=text]{display:block;width:100%;box-sizing:border-box;padding:12px;border:1px solid #bdcfc4;border-radius:8px;font:inherit}button{font:inherit;padding:12px 18px;border-radius:8px;border:1px solid #b6c9be;background:#fff;cursor:pointer;margin:6px 6px 6px 0}button.primary{background:#08743c;color:white}button:disabled{opacity:.5;cursor:wait}.sign-table{overflow:auto}table{width:100%;border-collapse:collapse;min-width:520px}td,th{padding:10px;text-align:left;border-bottom:1px solid #dce7df}small{display:block}.sign-help{color:#61786a;font-size:12px}code{overflow-wrap:anywhere}canvas{width:100%;height:180px;border:1px solid #a7c4b3;border-radius:8px;touch-action:none}#status{color:#a12929}#acceptLabel{display:flex;gap:10px;align-items:flex-start}#accept{flex-shrink:0;margin-top:5px}@media(max-width:600px){main{margin:0;padding:16px;border-radius:0}}@media print{button,#form{display:none}}</style></head>
+<body><main><h1>Helion · Conferir e assinar</h1><p id="loading" role="status">Carregando documento…</p><section id="document"></section><section id="form" hidden><p>Confira todas as informações acima. Se houver divergência, peça à loja um novo documento antes de assinar.</p><label>Seu nome completo<input id="signer" type="text" maxlength="160" autocomplete="name"></label><p>Assine com o dedo, caneta ou mouse:</p><canvas id="pad" width="700" height="220" aria-label="Área da assinatura"></canvas><button id="clear" type="button">Limpar assinatura</button><label id="acceptLabel"><input id="accept" type="checkbox"><span id="consent"></span></label><p class="sign-help">O nome informado, o desenho da assinatura, o aceite, a data e hora e a versão do documento serão armazenados pela loja. Este fluxo registra o aceite pelo link e não realiza verificação de identidade por certificado ou código.</p><button id="submit" type="button" class="primary">Confirmar informações e assinar</button></section><p id="status" role="alert"></p><div id="receiptActions" hidden><button id="download">Baixar comprovante</button><button id="print">Imprimir / salvar PDF</button></div></main>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="./signing.js"></script>
+<script>
+const SUPABASE_URL='https://ytzkxyipnhjxkbadttag.supabase.co';
+const SUPABASE_KEY='sb_publishable_bc8ktg6BKqHfangB9dVooQ_JGsV2Ro8';
+const client=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false}});
+const token=new URLSearchParams(location.hash.slice(1)).get('token')||'';
+const $=id=>document.getElementById(id);let current=null,busy=false;
+const pad=HelionSigning.pad($('pad'));
+function show(data){current=data;$('loading').textContent=data.status==='signed'?'Assinatura registrada em '+HelionSigning.date(data.signed_at):'Link válido até '+HelionSigning.date(data.expires_at);$('document').innerHTML=data.status==='signed'?HelionSigning.receipt(data):HelionSigning.preview(data);$('form').hidden=data.status!=='pending';$('receiptActions').hidden=data.status!=='signed';$('consent').textContent=data.consent_text;}
+$('clear').onclick=()=>pad.clear();
+$('download').onclick=()=>HelionSigning.download(current);$('print').onclick=()=>window.print();
+$('submit').onclick=async()=>{
+ if(busy)return;const signer=$('signer').value.trim(),signature=pad.get();
+ if(signer.length<3||!$('accept').checked||signature.reduce((n,s)=>n+s.length,0)<8){$('status').textContent='Informe seu nome, assine no quadro e marque o aceite.';return;}
+ busy=true;$('submit').disabled=true;$('status').textContent='Registrando assinatura…';
+ try{const {data,error}=await client.rpc('helion_signature_public',{token,signer,signature,accepted:true});if(error)throw error;show(data);$('status').textContent='Informações confirmadas. Guarde seu comprovante.';}catch(e){$('status').textContent=e.message||'Falha ao registrar. Tente novamente.';}finally{busy=false;$('submit').disabled=false;}
+};
+(async()=>{try{const {data,error}=await client.rpc('helion_signature_public',{token});if(error)throw error;show(data);}catch(e){$('loading').textContent='Documento indisponível';$('status').textContent=e.message||'Solicite um novo link à loja.';}})();
+</script></body></html>
