@@ -1,0 +1,22 @@
+(function(){
+const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const money=v=>Number(v||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+const date=v=>v?new Date(String(v).length===10?v+'T12:00:00':v).toLocaleString('pt-BR'):'—';
+function preview(data){
+ const s=data.snapshot||{};
+ return '<h2>'+esc(s.title)+'</h2><p>'+esc(s.company)+' • Cliente: <b>'+esc(s.client_name)+'</b></p><h3>'+esc(s.stage)+'</h3><p style="white-space:pre-wrap">'+esc(s.details)+'</p><div class="sign-table"><table><thead><tr><th>Produto / serviço</th><th>Qtd.</th><th>Preço unit.</th><th>Ajustes</th></tr></thead><tbody>'+(s.items||[]).concat(s.extras||[]).map(i=>'<tr><td>'+esc(i.description)+(i.group_name?'<small>'+esc(i.group_name)+'</small>':'')+'</td><td>'+esc(i.quantity)+' '+esc(i.unit)+'</td><td>'+money(i.unit_price)+'</td><td>'+(i.discount_percent?esc(i.discount_percent)+'% desconto ':'')+(i.addition_percent?esc(i.addition_percent)+'% acréscimo ':'')+(i.discount?money(i.discount)+' desconto':'')+'</td></tr>').join('')+'</tbody></table></div><p>Desconto geral: '+money(s.general_discount)+(s.discount_percent?' • '+esc(s.discount_percent)+'% de desconto':'')+(s.addition_percent?' • '+esc(s.addition_percent)+'% de acréscimo':'')+'</p><h3>Total do documento: '+money(s.total)+'</h3>'+((s.payments||[]).length?'<h3>Parcelas e vencimentos</h3>'+s.payments.map(p=>'<p>'+esc(p.method)+' • '+money(p.amount)+' • '+date(p.due_date)+'</p>').join(''):'')+'<p class="sign-help">Versão preservada para esta assinatura. Código do documento: <code>'+esc(data.document_hash)+'</code></p>';
+}
+function svg(strokes){return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 220" style="width:100%;max-width:700px;border:1px solid #ccd8d1">'+(strokes||[]).map(s=>'<polyline fill="none" stroke="#153d2a" stroke-width="2" points="'+s.map(p=>Number(p[0])+','+Number(p[1])).join(' ')+'"/>').join('')+'</svg>';}
+function receipt(data){return preview(data)+'<h3>Assinatura registrada</h3><p><b>'+esc(data.signer_name)+'</b> • '+date(data.signed_at)+'</p>'+svg(data.strokes)+'<p>'+esc(data.consent_text)+'</p><small>Registro '+esc(data.id)+'. Assinatura eletrônica pelo link individual, com nome informado pelo signatário.</small>';}
+function download(data){const blob=new Blob(['<!doctype html><html lang="pt-BR"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Comprovante de assinatura</title><style>body{font:16px system-ui;max-width:900px;margin:30px auto;padding:16px}table{width:100%;border-collapse:collapse}td,th{padding:8px;text-align:left;border-bottom:1px solid #ddd}small{display:block}code{overflow-wrap:anywhere}</style>'+receipt(data)+'</html>'],{type:'text/html;charset=utf-8'});const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='assinatura-'+data.id+'.html';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
+function pad(canvas){
+ const ctx=canvas.getContext('2d');let strokes=[],current=null;
+ const draw=()=>{ctx.clearRect(0,0,700,220);ctx.strokeStyle='#153d2a';ctx.lineWidth=2;ctx.lineCap='round';for(const s of strokes){ctx.beginPath();s.forEach(([x,y],i)=>i?ctx.lineTo(x,y):ctx.moveTo(x,y));ctx.stroke();}};
+ const point=e=>{const r=canvas.getBoundingClientRect();return [Math.round(Math.max(0,Math.min(700,(e.clientX-r.left)*700/r.width))),Math.round(Math.max(0,Math.min(220,(e.clientY-r.top)*220/r.height)))];};
+ canvas.onpointerdown=e=>{if(strokes.length>=100)return;e.preventDefault();canvas.setPointerCapture(e.pointerId);current=[point(e)];strokes.push(current);};
+ canvas.onpointermove=e=>{if(!current)return;e.preventDefault();if(current.length<2000)current.push(point(e));draw();};
+ const end=()=>{if(current&&current.length<2)strokes.pop();current=null;draw();};canvas.onpointerup=end;canvas.onpointercancel=end;
+ return {clear(){strokes=[];current=null;draw();},get(){return strokes.map(s=>s.map(p=>p.slice()));}};
+}
+window.HelionSigning={esc,preview,receipt,download,pad,date,svg};
+})();
