@@ -517,7 +517,7 @@ function renderHomeTasks(){
 }
 function taskHtml(t){return `<div class="task-row ${t.status==='done'?'done':''}"><button class="task-toggle" data-toggle-task="${t.id}">${t.status==='done'?'✓':'○'}</button><div><b>${esc(t.title)}</b><div class="feed-meta">${fmtDate(t.due_date)}${t.due_time?' • '+String(t.due_time).slice(0,5):''} • <span class="priority ${esc(t.priority||'normal')}">${esc(t.priority||'normal')}</span></div>${t.notes?`<div class="muted">${esc(t.notes)}</div>`:''}</div><button class="btn ghost" data-delete-task="${t.id}">Excluir</button></div>`}
 function renderAgenda(){
-  let rows=ownTasks(),today=todayISO();
+  let rows=ownTasks().filter(t=>!agendaVisitData(t)),today=todayISO();
   if(state.taskFilter==='today')rows=rows.filter(t=>t.status==='pending'&&t.due_date===today);
   if(state.taskFilter==='upcoming')rows=rows.filter(t=>t.status==='pending'&&t.due_date>today);
   if(state.taskFilter==='done')rows=rows.filter(t=>t.status==='done');
@@ -1943,6 +1943,73 @@ pwProductSearchStyle.textContent=`.pw-product-search{position:relative;flex:1 1 
 document.head.append(pwProductSearchStyle);
 
 const modelLibraryStyle=document.createElement('style');modelLibraryStyle.textContent='#pwModelLibrary[hidden],.pw-edit-actions[hidden]{display:none!important}#pwModelLibrary .modal-head{position:static}#pwModelLibrary .modal-head h3{font-size:20px}.project-workspace-menu button{white-space:normal}';document.head.append(modelLibraryStyle);
+
+
+function agendaVisitData(task){
+ try{const value=JSON.parse(task.notes||'null');return value?.type==='helion_scheduled_visit'&&typeof value.address==='string'?value:null;}catch{return null;}
+}
+function agendaVisitsForDate(date){return ownTasks().filter(t=>agendaVisitData(t)&&t.due_date===date).sort((a,b)=>(a.due_time||'99:99').localeCompare(b.due_time||'99:99')||String(a.created_at).localeCompare(String(b.created_at)));}
+const taskHtmlBeforeVisits=taskHtml;
+taskHtml=function(task){
+ const visit=agendaVisitData(task);if(!visit)return taskHtmlBeforeVisits(task);
+ const detail=[visit.address,visit.observation].filter(Boolean).join(' • ');
+ return taskHtmlBeforeVisits({...task,notes:detail}).replace('</div><button class="btn ghost" data-delete-task=', '<a class="visit-map" href="https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(visit.address)+'" target="_blank" rel="noopener noreferrer">Ver no mapa</a></div><button class="btn ghost" data-delete-task=');
+};
+function renderAgendaVisitRoute(){
+ const list=$('#agendaVisitRoute');if(!list)return;
+ const date=$('#agendaRouteDate').value||todayISO(),rows=agendaVisitsForDate(date);
+ list.innerHTML=rows.length?rows.map((task,index)=>'<div class="visit-stop"><span class="badge">Parada '+(index+1)+'</span>'+taskHtml(task)+'</div>').join(''):empty('Nenhuma visita na rota deste dia.');
+}
+const renderAgendaBeforeVisits=renderAgenda;
+renderAgenda=function(){
+ renderAgendaBeforeVisits();
+ const head=$('#page-agenda > .page-head');if(!head)return;
+ if(!$('#agendaNewVisit')){
+  const actions=document.createElement('div');actions.className='row';const taskButton=head.querySelector('[data-new-task]');if(taskButton)actions.append(taskButton);
+  const button=document.createElement('button');button.id='agendaNewVisit';button.type='button';button.className='btn primary';button.textContent='+ Nova visita';button.onclick=openAgendaVisit;actions.append(button);head.append(actions);
+ }
+ if(!$('#agendaRoutePanel')){
+  const panel=document.createElement('section');panel.id='agendaRoutePanel';panel.className='panel';panel.style.marginBottom='14px';
+  panel.innerHTML='<div class="panel-head"><div><h3>Rota do dia</h3><p>Visitas em ordem de horário.</p></div><label>Dia da rota<input id="agendaRouteDate" type="date"></label></div><div id="agendaVisitRoute"></div>';
+  head.after(panel);$('#agendaRouteDate').value=state.visitRouteDate||todayISO();
+  $('#agendaRouteDate').onchange=()=>{state.visitRouteDate=$('#agendaRouteDate').value;renderAgendaVisitRoute();};
+ }
+ renderAgendaVisitRoute();
+};
+function openAgendaVisit(){
+ showModal(modalHead('Nova visita','Pesquise o cliente e confira o endereço para incluí-lo na rota do dia escolhido.')+
+ '<label>Pesquisar cliente<input id="visitClientSearch" autocomplete="off" placeholder="Nome, CPF/CNPJ ou código"></label><div id="visitClientResults" class="visit-client-results"></div><p id="visitClientSelected" role="status">Nenhum cliente selecionado.</p><div class="form-grid"><label class="full">Endereço da visita<textarea id="visitAddress" rows="2" placeholder="Rua, número, bairro, cidade e referência"></textarea></label><label>Data<input id="visitDate" type="date"></label><label>Horário (opcional)<input id="visitTime" type="time"></label><label class="full">Observação<textarea id="visitObservation" rows="2"></textarea></label></div><p id="visitError" role="alert"></p><div class="actions"><button type="button" class="btn ghost" data-close-modal>Cancelar</button><button type="button" class="btn primary" id="visitSave" disabled>Adicionar à rota</button></div>');
+ $('#visitDate').value=$('#agendaRouteDate')?.value||todayISO();
+ let client=null,saving=false;
+ const norm=value=>String(value||'').toLocaleLowerCase('pt-BR').normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+ $('#visitClientSearch').oninput=()=>{
+  client=null;$('#visitSave').disabled=true;$('#visitClientSelected').textContent='Selecione um cliente.';$('#visitAddress').value='';
+  const query=norm($('#visitClientSearch').value.trim()),list=$('#visitClientResults');list.replaceChildren();
+  if(!query)return;
+  const rows=state.clients.filter(c=>c.active!==false&&norm([c.name,c.nickname,c.cpf_cnpj,posClientCode(c),c.address].join(' ')).includes(query));
+  if(!rows.length)list.textContent='Nenhum cliente encontrado.';
+  rows.slice(0,20).forEach(c=>{
+   const button=document.createElement('button');button.type='button';button.className='btn ghost visit-client-result';
+   const name=document.createElement('b'),address=document.createElement('small');name.textContent=c.name;address.textContent=c.address||'Sem endereço cadastrado';
+   button.append(name,address);button.onclick=()=>{client=c;$('#visitClientSearch').value=c.name;list.replaceChildren();$('#visitClientSelected').textContent='Cliente: '+c.name;$('#visitAddress').value=c.address||'';$('#visitSave').disabled=false;};list.append(button);
+  });
+ };
+ $('#visitSave').onclick=async()=>{
+  if(saving)return;
+  const address=$('#visitAddress').value.trim(),date=$('#visitDate').value,time=$('#visitTime').value;
+  if(!client||!address||!/^\d{4}-\d{2}-\d{2}$/.test(date)){$('#visitError').textContent='Selecione o cliente, informe o endereço e a data.';return;}
+  saving=true;$('#visitSave').disabled=true;$('#visitError').textContent='';
+  try{
+   const notes={type:'helion_scheduled_visit',version:1,client_id:client.id,client_name:client.name,address,observation:$('#visitObservation').value.trim()};
+   const {error}=await db.from('employee_tasks').insert({company_id:state.profile.company_id,employee_id:state.profile.id,created_by:state.profile.id,title:'Visita: '+client.name,notes:JSON.stringify(notes),due_date:date,due_time:time||null,priority:'normal',status:'pending'});
+   if(error)throw error;
+   state.visitRouteDate=date;if($('#agendaRouteDate'))$('#agendaRouteDate').value=date;
+   closeModal();await loadAll();toast('Visita adicionada à rota de '+fmtDate(date)+'.');
+  }catch(error){saving=false;const message=$('#visitError');if(message)message.textContent=error.message||'Não foi possível salvar a visita.';if($('#visitSave'))$('#visitSave').disabled=false;}
+ };
+ $('#visitClientSearch').focus();
+}
+const agendaVisitStyle=document.createElement('style');agendaVisitStyle.textContent='.visit-client-results{display:grid;gap:6px;max-height:220px;overflow:auto;margin-top:8px}.visit-client-result{text-align:left}.visit-client-result>*{display:block}.visit-client-result small{margin-top:4px;font-weight:400}.visit-stop{border-bottom:1px solid var(--line);padding-top:10px}.visit-stop:last-child{border:0}.visit-map{display:inline-block;margin-top:8px;color:var(--green2)}#visitError{color:var(--danger)}#agendaRoutePanel .panel-head{flex-wrap:wrap}';document.head.append(agendaVisitStyle);
 
 // O site abre diretamente no navegador. Remove somente o cache antigo do Helion.
 if ('serviceWorker' in navigator) {
