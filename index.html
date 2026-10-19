@@ -552,7 +552,8 @@ function openClientModal(id){
   $('#mClientType').value=c.type||'PF';$('#saveClientBtn').onclick=()=>saveClient(id);
 }
 async function saveClient(id){
-  const payload={company_id:state.profile.company_id,type:$('#mClientType').value,name:$('#mClientName').value.trim(),nickname:$('#mClientNick').value.trim()||null,cpf_cnpj:$('#mClientDoc').value.trim()||null,ie:$('#mClientIE').value.trim()||null,im:$('#mClientIM').value.trim()||null,phone:$('#mClientPhone').value.trim()||null,email:$('#mClientEmail').value.trim()||null,property_name:$('#mClientProperty').value.trim()||null,address:$('#mClientAddress').value.trim()||null,notes:$('#mClientNotes').value.trim()||null,active:true,updated_at:nowISO()};
+ const coordinates=geoRead('mClientGeo');if(!coordinates)return;
+  const payload={company_id:state.profile.company_id,type:$('#mClientType').value,name:$('#mClientName').value.trim(),nickname:$('#mClientNick').value.trim()||null,cpf_cnpj:$('#mClientDoc').value.trim()||null,ie:$('#mClientIE').value.trim()||null,im:$('#mClientIM').value.trim()||null,phone:$('#mClientPhone').value.trim()||null,email:$('#mClientEmail').value.trim()||null,property_name:$('#mClientProperty').value.trim()||null,address:$('#mClientAddress').value.trim()||null,latitude:coordinates.latitude,longitude:coordinates.longitude,notes:$('#mClientNotes').value.trim()||null,active:true,updated_at:nowISO()};
   if(!payload.name){toast('Informe o nome do cliente.');return}
   const q=id?db.from('clients').update(payload).eq('id',id):db.from('clients').insert(payload);
   const {error}=await q;if(error){toast(error.message);return}closeModal();toast('Cliente salvo.');await loadAll();
@@ -888,11 +889,12 @@ openClientModal=function(id){
  docField.value=maskDocument(docField.value,typeField.value);docField.oninput=()=>{docField.value=maskDocument(docField.value,typeField.value);check();};typeField.onchange=()=>{docField.value=maskDocument(docField.value,typeField.value);check();};$('#mClientBirth').oninput=check;check();
 };
 async function saveClient(id){
+ const coordinates=geoRead('mClientGeo');if(!coordinates)return;
  const doc=$('#mClientDoc').value.trim(),birth=$('#mClientBirth').value,type=$('#mClientType').value;
  if(type==='PF'&&doc&&!validCPF(doc)){toast('CPF inválido. Confira os dígitos.');return;}if(!validBirth(birth)){toast('Confira a data de nascimento.');return;}
  const links=$$('.family-row').map(r=>({client_id:$('.family-client',r).value,relation:$('.family-relation',r).value.trim()})).filter(x=>x.client_id);
  if(new Set(links.map(l=>l.client_id)).size!==links.length){toast('Familiar duplicado.');return;}
- const payload={company_id:state.profile.company_id,type,name:$('#mClientName').value.trim(),nickname:$('#mClientNick').value.trim()||null,cpf_cnpj:doc||null,birth_date:birth||null,ie:$('#mClientIE').value.trim()||null,im:$('#mClientIM').value.trim()||null,phone:$('#mClientPhone').value.trim()||null,email:$('#mClientEmail').value.trim()||null,property_name:$('#mClientProperty').value.trim()||null,address:$('#mClientAddress').value.trim()||null,notes:$('#mClientNotes').value.trim()||null,extra_phones:$$('.extra-phone').map(e=>e.value.trim()).filter(Boolean),extra_addresses:$$('.extra-address').map(e=>e.value.trim()).filter(Boolean),family_links:links,updated_at:nowISO()};
+ const payload={company_id:state.profile.company_id,type,name:$('#mClientName').value.trim(),nickname:$('#mClientNick').value.trim()||null,cpf_cnpj:doc||null,birth_date:birth||null,ie:$('#mClientIE').value.trim()||null,im:$('#mClientIM').value.trim()||null,phone:$('#mClientPhone').value.trim()||null,email:$('#mClientEmail').value.trim()||null,property_name:$('#mClientProperty').value.trim()||null,address:$('#mClientAddress').value.trim()||null,latitude:coordinates.latitude,longitude:coordinates.longitude,notes:$('#mClientNotes').value.trim()||null,extra_phones:$$('.extra-phone').map(e=>e.value.trim()).filter(Boolean),extra_addresses:$$('.extra-address').map(e=>e.value.trim()).filter(Boolean),family_links:links,updated_at:nowISO()};
  if(!payload.name){toast('Informe o nome.');return;}$('#saveClientBtn').disabled=true;
  try{const{error}=await(id?db.from('clients').update(payload).eq('id',id):db.from('clients').insert(payload));if(error)throw error;closeModal();await loadAll();toast('Cliente salvo.');}catch(e){toast(e.message);if($('#saveClientBtn'))$('#saveClientBtn').disabled=false;}
 }
@@ -1331,7 +1333,8 @@ function addSalePayment(p){const root=$('#salePayments'),row=document.createElem
 function generateSalePayments(){const n=Math.max(1,Math.min(120,Number($('#saleInstallments').value)||1)),total=calcSale(),method=$('#mSalePayment').value==='Misto'?'PIX':$('#mSalePayment').value,base=$('#saleFirstDue').value||todayISO(),days=Math.max(1,Number($('#saleInterval').value)||30);$('#salePayments').innerHTML='';const cents=Math.round(total*100),part=Math.floor(cents/n);for(let i=0;i<n;i++){const d=new Date(base+'T12:00:00');d.setDate(d.getDate()+i*days);addSalePayment({amount:(part+(i===n-1?cents-part*n:0))/100,method,due_date:d.toLocaleDateString('en-CA'),received:n===1&&['PIX','Dinheiro','Débito'].includes(method)});}}
 function salePaymentSum(){if(!$('#salePaymentSum'))return;const sum=$$('.pay-amount').reduce((a,i)=>a+Number(i.value||0),0);$('#salePaymentSum').textContent='Pagamentos: '+money(sum)+' • devem corresponder ao total da venda.';}
 saveSale=async function(channel){const items=getSaleRows(),payments=$$('.payment-row').map(r=>({method:r.querySelector('.pay-method').value,amount:moneyNumber(r.querySelector('.pay-amount').value),due_date:r.querySelector('.pay-due').value,received:r.querySelector('.pay-received').checked}));if(!items.length||items.some(i=>!i.product_id||i.quantity<=0||!Number.isFinite(i.quantity)||!Number.isFinite(i.unit_price)||i.unit_price<0||i.discount<0||i.discount>i.quantity*i.unit_price)||payments.some(p=>p.amount<=0||!p.due_date)||moneyNumber(payments.reduce((a,p)=>a+p.amount,0))!==calcSale()){toast('Confira materiais, descontos e a soma dos pagamentos.');return;}
-const payload={request_id:saleRequestId,client_id:$('#mSaleClient').value,seller_id:$('#mSaleSeller').value,sales_channel:channel,fulfillment_type:$('#mFulfill').value,scheduled_delivery_at:$('#mDeliveryDate').value?new Date($('#mDeliveryDate').value).toISOString():null,delivery_address:$('#mDeliveryAddress').value.trim(),field_notes:$('#mFieldNotes')?.value.trim()||'',discount:Number($('#mSaleDiscount').value),fiscal:$('#mSaleFiscal').value,payment_method:$('#mSalePayment').value,items,payments};await operationRPC('helion_sale',{payload},'saveSaleBtn',()=>go(payload.fulfillment_type==='immediate'?'sales':'orders'));};
+const deliveryCoordinates=geoRead('saleGeo');if(!deliveryCoordinates)return;
+const payload={delivery_latitude:deliveryCoordinates.latitude,delivery_longitude:deliveryCoordinates.longitude,request_id:saleRequestId,client_id:$('#mSaleClient').value,seller_id:$('#mSaleSeller').value,sales_channel:channel,fulfillment_type:$('#mFulfill').value,scheduled_delivery_at:$('#mDeliveryDate').value?new Date($('#mDeliveryDate').value).toISOString():null,delivery_address:$('#mDeliveryAddress').value.trim(),field_notes:$('#mFieldNotes')?.value.trim()||'',discount:Number($('#mSaleDiscount').value),fiscal:$('#mSaleFiscal').value,payment_method:$('#mSalePayment').value,items,payments};await operationRPC('helion_sale',{payload},'saveSaleBtn',()=>go(payload.fulfillment_type==='immediate'?'sales':'orders'));};
 renderSales=function(){$('#salesBody').innerHTML=state.sales.length?state.sales.map(s=>'<tr><td>'+new Date(s.created_at).toLocaleString('pt-BR')+'</td><td><a href="#sales/'+s.id+'" data-op="sale_view" data-id="'+s.id+'">#'+s.id.slice(0,8).toUpperCase()+'</a></td><td>'+esc(clientName(s.client_id))+'</td><td>'+esc(employeeName(s.seller_id))+'</td><td>'+money(s.total)+'</td><td>'+esc(s.fiscal_status==='issued_external'?'Emitido na Objetiva':s.fiscal_requested?'Fiscal pendente':'Classificar fiscal')+'</td></tr>').join(''):'<tr><td colspan="6">'+empty('Nenhuma venda registrada ainda.')+'</td></tr>';uiTableLabels($('#page-sales'));};
 function viewSale(id){const s=state.sales.find(s=>s.id===id);if(!s)return;showModal(modalHead('Venda #'+id.slice(0,8).toUpperCase(),clientName(s.client_id))+'<div class="doc-summary"><div>Total <b>'+money(s.total)+'</b></div><div>Descontos <b>'+money(s.discount)+'</b></div><div>Responsável <b>'+esc(employeeName(s.seller_id))+'</b></div></div>'+state.saleItems.filter(i=>i.sale_id===id).map(i=>'<div class="list-row">'+esc(i.description)+' • '+i.quantity+' '+esc(i.unit||'')+' • '+money(i.total)+'</div>').join('')+'<h4>Pagamentos</h4>'+state.finance.filter(f=>f.sale_id===id).map(f=>'<div class="list-row">'+esc(f.description)+' • '+fmtDate(f.due_date)+' • '+money(f.amount)+' • '+(f.paid_at?'Quitado':'Pendente: '+money(Number(f.amount)-Number(f.paid_amount||0)))+'</div>').join('')+opButton('Comprovante interno','order_print',id)+'<h4>Histórico</h4>'+state.audits.filter(a=>a.entity_id===id).map(a=>'<div class="list-row">'+esc(a.action)+' • '+esc(employeeName(a.employee_id))+' • '+new Date(a.created_at).toLocaleString('pt-BR')+'</div>').join(''),true);}
 renderOrders=function(){const rows=state.sales.filter(s=>s.fulfillment_status!=='completed'&&s.status==='closed');$('#ordersList').innerHTML=rows.length?rows.map(s=>'<article class="order-card"><b>'+esc(clientName(s.client_id))+' • '+money(s.total)+'</b><p>'+esc(employeeName(s.seller_id))+' • '+(s.sales_channel==='field'?'Campo':'Loja')+' • '+(s.fulfillment_type==='pickup_store'?'Retirada':'Entrega')+' • '+(s.separation_status==='pending'?'A separar':'Separado')+'</p><p>'+esc(s.delivery_address||'')+(s.scheduled_delivery_at?' • '+new Date(s.scheduled_delivery_at).toLocaleString('pt-BR'):'')+'</p>'+state.saleItems.filter(i=>i.sale_id===s.id).map(i=>'<div class="list-row">'+esc(i.description)+' • '+i.quantity+' '+esc(i.unit||'')+'</div>').join('')+'<div class="doc-actions">'+opButton('Imprimir lista interna','order_print',s.id)+(s.separation_status==='pending'?opButton('Marcar separado','order_separate',s.id,'primary'):opButton('Confirmar retirada / entrega','order_complete',s.id,'primary'))+opButton('Histórico','sale_view',s.id)+'</div></article>').join(''):empty('Nenhum pedido aguardando ação.');};
@@ -1728,12 +1731,12 @@ const notesFeature=hasFeature;hasFeature=function(feature){return feature==='not
 mobilePages.push(['notes','Notas']);
 if(!$('#mainNav [data-page="notes"]'))$('#mainNav').insertAdjacentHTML('beforeend','<a href="#notes" data-page="notes" data-feature="notes">'+uiIcon('agenda')+'<span>Bloco de notas</span></a>');
 function renderNotes(){const root=$('#notesList');if(!root)return;const term=($('#notesSearch').value||'').toLocaleLowerCase('pt-BR'),archived=$('#notesArchive').value==='archived';const rows=(state.notes||[]).filter(n=>n.archived===archived&&[n.title,n.body,n.client_id?clientName(n.client_id):'',n.sale_id||''].join(' ').toLocaleLowerCase('pt-BR').includes(term));root.innerHTML=rows.length?rows.map(n=>'<article class="panel note-card"><small>'+esc(new Date(n.updated_at).toLocaleString('pt-BR'))+' • '+esc(employeeName(n.owner_id))+'</small><h3>'+esc(n.title)+'</h3>'+(n.client_id?'<span class="status">'+esc(clientName(n.client_id))+'</span>':'')+(n.sale_id?'<span class="status">Venda #'+esc(n.sale_id.slice(0,8).toUpperCase())+'</span>':'')+'<p>'+esc(n.body)+'</p><div class="actions"><button class="btn ghost" data-note-edit="'+n.id+'">Abrir / editar</button><button class="btn ghost" data-note-archive="'+n.id+'">'+(n.archived?'Restaurar':'Arquivar')+'</button></div></article>').join(''):empty(archived?'Nenhuma anotação arquivada.':'Nenhuma anotação. Registre um atendimento, combinado ou informação para lembrar.');}
-function noteEditor(id=null,clientId='',saleId=''){const n=(state.notes||[]).find(n=>n.id===id)||{};showModal(modalHead(id?'Editar anotação':'Nova anotação','A anotação fica salva no sistema e pode ser vinculada ao cliente e à venda.')+'<label>Título<input id="noteTitle" maxlength="160" value="'+esc(n.title||'')+'"></label><div class="form-grid"><label>Cliente (opcional)<select id="noteClient"><option value="">Sem cliente</option>'+state.clients.map(c=>'<option value="'+c.id+'">'+esc(c.name)+'</option>').join('')+'</select></label><label>Venda (opcional)<select id="noteSale"></select></label></div><label>Anotação<textarea id="noteBody" maxlength="20000" rows="8">'+esc(n.body||'')+'</textarea></label><p id="noteStatus" role="status"></p><div class="actions"><button id="saveNote" class="btn primary">Salvar anotação</button></div>');$('#noteClient').value=n.client_id||clientId;const fill=()=>{const current=$('#noteSale').value;$('#noteSale').innerHTML='<option value="">Sem venda</option>'+state.sales.filter(s=>!$('#noteClient').value||s.client_id===$('#noteClient').value).map(s=>'<option value="'+s.id+'">#'+s.id.slice(0,8).toUpperCase()+' • '+esc(clientName(s.client_id))+' • '+fmtDate(String(s.created_at).slice(0,10))+'</option>').join('');$('#noteSale').value=current;};fill();$('#noteSale').value=n.sale_id||saleId;$('#noteClient').onchange=fill;
- $('#saveNote').onclick=async()=>{const title=$('#noteTitle').value.trim(),body=$('#noteBody').value.trim();if(!title||!body){$('#noteStatus').textContent='Preencha título e anotação.';return;}$('#saveNote').disabled=true;const payload={company_id:state.profile.company_id,owner_id:n.owner_id||state.profile.id,title,body,client_id:$('#noteClient').value||null,sale_id:$('#noteSale').value||null,archived:n.archived||false};try{const r=await(id?db.from('helion_notes').update(payload).eq('id',id):db.from('helion_notes').insert(payload));if(r.error)throw r.error;closeModal();await loadAll();go('notes');toast('Anotação salva.');}catch(error){$('#noteStatus').textContent=error.message;$('#saveNote').disabled=false;}};
+function noteEditor(id=null,clientId='',saleId='',returnToClient=false){const n=(state.notes||[]).find(n=>n.id===id)||{};showModal(modalHead(id?'Editar anotação':'Nova anotação','Ao selecionar um cliente, a anotação também ficará disponível no cadastro dele.')+'<label>Título<input id="noteTitle" maxlength="160" value="'+esc(n.title||'')+'"></label><div class="form-grid"><label>Cliente (opcional)<select id="noteClient"><option value="">Sem cliente</option>'+state.clients.map(c=>'<option value="'+c.id+'">'+esc(c.name)+'</option>').join('')+'</select></label><label>Venda (opcional)<select id="noteSale"></select></label></div><label>Anotação<textarea id="noteBody" maxlength="20000" rows="8">'+esc(n.body||'')+'</textarea></label><p id="noteStatus" role="status"></p><div class="actions"><button id="saveNote" class="btn primary">Salvar anotação</button></div>');$('#noteClient').value=n.client_id||clientId;const fill=()=>{const current=$('#noteSale').value;$('#noteSale').innerHTML='<option value="">Sem venda</option>'+state.sales.filter(s=>!$('#noteClient').value||s.client_id===$('#noteClient').value).map(s=>'<option value="'+s.id+'">#'+s.id.slice(0,8).toUpperCase()+' • '+esc(clientName(s.client_id))+' • '+fmtDate(String(s.created_at).slice(0,10))+'</option>').join('');$('#noteSale').value=current;};fill();$('#noteSale').value=n.sale_id||saleId;$('#noteClient').onchange=fill;
+ $('#saveNote').onclick=async()=>{const title=$('#noteTitle').value.trim(),body=$('#noteBody').value.trim();if(!title||!body){$('#noteStatus').textContent='Preencha título e anotação.';return;}$('#saveNote').disabled=true;const payload={company_id:state.profile.company_id,owner_id:n.owner_id||state.profile.id,title,body,client_id:$('#noteClient').value||null,sale_id:$('#noteSale').value||null,archived:n.archived||false};try{const r=await(id?db.from('helion_notes').update(payload).eq('id',id):db.from('helion_notes').insert(payload));if(r.error)throw r.error;closeModal();await loadAll();if(returnToClient){selectedClientId=payload.client_id||clientId;clientDetailTab='notes';go('clients');renderClients();$('#clientWorkspace').classList.add('show-detail');}else go('notes');toast(payload.client_id?'Anotação salva e vinculada ao cadastro de '+clientName(payload.client_id)+'.':'Anotação salva.');}catch(error){$('#noteStatus').textContent=error.message;$('#saveNote').disabled=false;}};
 }
-document.addEventListener('click',e=>{const edit=e.target.closest('[data-note-edit]');if(edit){noteEditor(edit.dataset.noteEdit);return;}const a=e.target.closest('[data-note-archive]');if(a){const n=state.notes.find(n=>n.id===a.dataset.noteArchive);if(!n)return;a.disabled=true;db.from('helion_notes').update({archived:!n.archived}).eq('id',n.id).then(async r=>{if(r.error){toast(r.error.message);a.disabled=false;return;}await loadAll();});}});
+document.addEventListener('click',e=>{const edit=e.target.closest('[data-note-edit]');if(edit){noteEditor(edit.dataset.noteEdit,'','',!!edit.closest('#clientNotesPanel'));return;}const a=e.target.closest('[data-note-archive]');if(a){const n=state.notes.find(n=>n.id===a.dataset.noteArchive);if(!n)return;a.disabled=true;db.from('helion_notes').update({archived:!n.archived}).eq('id',n.id).then(async r=>{if(r.error){toast(r.error.message);a.disabled=false;return;}await loadAll();});}});
 const notesViewSale=viewSale;viewSale=function(id){notesViewSale(id);const s=state.sales.find(s=>s.id===id);if(!s)return;const b=document.createElement('button');b.className='btn ghost';b.textContent='Anotar sobre esta venda';b.onclick=()=>noteEditor(null,s.client_id,id);$('#modalRoot .modal')?.append(b);};
-const notesLoad=loadAll;loadAll=async function(){await notesLoad();const r=await operationRows('helion_notes');if(r.error){state.notes=[];toast('Não foi possível carregar anotações: '+r.error.message);}else state.notes=(r.data||[]).sort((a,b)=>String(b.updated_at).localeCompare(String(a.updated_at)));renderNotes();};
+const notesLoad=loadAll;loadAll=async function(){await notesLoad();const r=await operationRows('helion_notes');if(r.error){state.notes=[];toast('Não foi possível carregar anotações: '+r.error.message);}else state.notes=(r.data||[]).sort((a,b)=>String(b.updated_at).localeCompare(String(a.updated_at)));renderNotes();renderClientDetail();};
 const notesCss=document.createElement('style');notesCss.textContent='.notes-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px}.note-card small{color:#718079}.note-card>p{white-space:pre-wrap;overflow-wrap:anywhere;max-height:240px;overflow:auto;line-height:1.6}.note-card .status{margin-right:6px}@media(max-width:760px){#mainNav [data-page="notes"]{display:flex!important}.notes-grid{grid-template-columns:1fr}.bottom-nav a span{font-size:10px}}';document.head.append(notesCss);
 
 // One sale sheet first; payment opens only after the entire item list is ready.
@@ -1954,7 +1957,7 @@ const taskHtmlBeforeVisits=taskHtml;
 taskHtml=function(task){
  const visit=agendaVisitData(task);if(!visit)return taskHtmlBeforeVisits(task);
  const detail=[visit.address,visit.observation].filter(Boolean).join(' • ');
- return taskHtmlBeforeVisits({...task,notes:detail}).replace('</div><button class="btn ghost" data-delete-task=', '<a class="visit-map" href="https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(visit.address)+'" target="_blank" rel="noopener noreferrer">Ver no mapa</a></div><button class="btn ghost" data-delete-task=');
+ return taskHtmlBeforeVisits({...task,notes:detail}).replace('</div><button class="btn ghost" data-delete-task=', '<a class="visit-map" href="'+geoMapsLink(visit.latitude,visit.longitude,visit.address)+'" target="_blank" rel="noopener noreferrer">Ver no mapa</a></div><button class="btn ghost" data-delete-task=');
 };
 function renderAgendaVisitRoute(){
  const list=$('#agendaVisitRoute');if(!list)return;
@@ -1990,7 +1993,7 @@ function openAgendaVisit(){
   const rows=state.clients.filter(c=>c.active!==false&&norm([c.name,c.nickname,c.cpf_cnpj,posClientCode(c),c.address].join(' ')).includes(query));
   if(!rows.length)list.textContent='Nenhum cliente encontrado.';
   rows.slice(0,20).forEach(c=>{
-   const button=document.createElement('button');button.type='button';button.className='btn ghost visit-client-result';
+   const button=document.createElement('button');button.type='button';button.dataset.geoClient=c.id;button.className='btn ghost visit-client-result';
    const name=document.createElement('b'),address=document.createElement('small');name.textContent=c.name;address.textContent=c.address||'Sem endereço cadastrado';
    button.append(name,address);button.onclick=()=>{client=c;$('#visitClientSearch').value=c.name;list.replaceChildren();$('#visitClientSelected').textContent='Cliente: '+c.name;$('#visitAddress').value=c.address||'';$('#visitSave').disabled=false;};list.append(button);
   });
@@ -2001,7 +2004,8 @@ function openAgendaVisit(){
   if(!client||!address||!/^\d{4}-\d{2}-\d{2}$/.test(date)){$('#visitError').textContent='Selecione o cliente, informe o endereço e a data.';return;}
   saving=true;$('#visitSave').disabled=true;$('#visitError').textContent='';
   try{
-   const notes={type:'helion_scheduled_visit',version:1,client_id:client.id,client_name:client.name,address,observation:$('#visitObservation').value.trim()};
+   const coordinates=geoRead('visitGeo');if(!coordinates){saving=false;$('#visitSave').disabled=false;return;}
+   const notes={latitude:coordinates.latitude,longitude:coordinates.longitude,type:'helion_scheduled_visit',version:1,client_id:client.id,client_name:client.name,address,observation:$('#visitObservation').value.trim()};
    const {error}=await db.from('employee_tasks').insert({company_id:state.profile.company_id,employee_id:state.profile.id,created_by:state.profile.id,title:'Visita: '+client.name,notes:JSON.stringify(notes),due_date:date,due_time:time||null,priority:'normal',status:'pending'});
    if(error)throw error;
    state.visitRouteDate=date;if($('#agendaRouteDate'))$('#agendaRouteDate').value=date;
@@ -2072,6 +2076,115 @@ saveSale=async function(...args){
  await openRemoteSignatures('sale',id);
  $('#remoteSignStatus').textContent='Venda registrada com assinatura pendente. Gere o link e encaminhe ao cliente.';
  }
+};
+
+
+function geoNumber(value){
+ const text=String(value??'').trim().replace(',','.');
+ return text!==''&&/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)$/.test(text)?Number(text):null;
+}
+function geoPair(latitude,longitude){
+ const lat=geoNumber(latitude),lng=geoNumber(longitude);
+ return lat!==null&&lng!==null&&Number.isFinite(lat)&&Number.isFinite(lng)&&Math.abs(lat)<=90&&Math.abs(lng)<=180?{latitude:lat,longitude:lng}:null;
+}
+function geoMapsLink(latitude,longitude,address){
+ const pair=geoPair(latitude,longitude),destination=pair?pair.latitude+','+pair.longitude:String(address||'').trim();
+ return destination?'https://www.google.com/maps/dir/?api=1&destination='+encodeURIComponent(destination)+'&travelmode=driving':'';
+}
+function geoFields(prefix,latitude='',longitude=''){
+ return '<fieldset class="geo-fields full"><legend>Localização no mapa (opcional)</legend><div class="form-grid"><label>Latitude<input id="'+prefix+'Lat" inputmode="decimal" placeholder="Ex.: -23.550520" value="'+esc(latitude??'')+'"></label><label>Longitude<input id="'+prefix+'Lng" inputmode="decimal" placeholder="Ex.: -46.633308" value="'+esc(longitude??'')+'"></label></div><p class="help">Cole a latitude e a longitude do ponto de chegada. Aceita ponto ou vírgula decimal.</p><a id="'+prefix+'Map" class="btn ghost" target="_blank" rel="noopener noreferrer" hidden>Conferir ponto no Google Maps</a><p id="'+prefix+'Error" role="status"></p></fieldset>';
+}
+function geoRead(prefix){
+ const lat=$('#'+prefix+'Lat')?.value.trim()||'',lng=$('#'+prefix+'Lng')?.value.trim()||'';
+ if(!lat&&!lng)return {latitude:null,longitude:null};
+ const pair=geoPair(lat,lng);
+ if(!pair){const message='Informe latitude entre -90 e 90 e longitude entre -180 e 180. Preencha os dois campos.';const error=$('#'+prefix+'Error');if(error)error.textContent=message;toast(message);return null;}
+ return pair;
+}
+function geoWire(prefix){
+ const update=()=>{const pair=geoPair($('#'+prefix+'Lat').value,$('#'+prefix+'Lng').value),link=$('#'+prefix+'Map');link.hidden=!pair;if(pair)link.href=geoMapsLink(pair.latitude,pair.longitude,'');$('#'+prefix+'Error').textContent='';};
+ $('#'+prefix+'Lat').addEventListener('input',update);$('#'+prefix+'Lng').addEventListener('input',update);update();return update;
+}
+const openClientBeforeGeo=openClientModal;
+openClientModal=function(id){
+ openClientBeforeGeo(id);const client=state.clients.find(c=>c.id===id)||{};
+ $('#mClientAddress').closest('label').insertAdjacentHTML('afterend',geoFields('mClientGeo',client.latitude,client.longitude));geoWire('mClientGeo');
+};
+const openSaleBeforeGeo=openSaleModal;
+openSaleModal=function(...args){
+ openSaleBeforeGeo(...args);const address=$('#mDeliveryAddress');if(!address||$('#saleGeoLat'))return;
+ address.closest('label').insertAdjacentHTML('afterend',geoFields('saleGeo'));const update=geoWire('saleGeo');
+ const clear=()=>{$('#saleGeoLat').value='';$('#saleGeoLng').value='';update();};
+ const sync=()=>{const client=state.clients.find(c=>c.id===$('#mSaleClient').value);clear();if(!client)return;
+ if(!address.value.trim()||address.value.trim()===client.address){address.value=client.address||'';$('#saleGeoLat').value=client.latitude??'';$('#saleGeoLng').value=client.longitude??'';update();}
+ };
+ $('#mSaleClient').addEventListener('change',sync);address.addEventListener('input',clear);sync();
+};
+const openAgendaVisitBeforeGeo=openAgendaVisit;
+openAgendaVisit=function(){
+ openAgendaVisitBeforeGeo();$('#visitAddress').closest('label').insertAdjacentHTML('afterend',geoFields('visitGeo'));const update=geoWire('visitGeo');
+ $('#visitAddress').addEventListener('input',()=>{$('#visitGeoLat').value='';$('#visitGeoLng').value='';update();});
+ const search=$('#visitClientSearch'),searchHandler=search.oninput;
+ search.oninput=()=>{searchHandler();$('#visitGeoLat').value='';$('#visitGeoLng').value='';update();
+ $('#visitClientResults').querySelectorAll('button').forEach(button=>{const select=button.onclick;button.onclick=()=>{select();const client=state.clients.find(c=>c.id===button.dataset.geoClient);$('#visitGeoLat').value=client?.latitude??'';$('#visitGeoLng').value=client?.longitude??'';update();};});
+ };
+};
+const renderOrdersBeforeGeo=renderOrders;
+renderOrders=function(){
+ renderOrdersBeforeGeo();
+ $('#ordersList')?.querySelectorAll('.order-card').forEach(card=>{
+ const button=card.querySelector('[data-delivery-id],[data-id]'),id=button?.dataset.deliveryId||button?.dataset.id;
+ const sale=(state.deliveryOrders||[]).find(s=>s.id===id)||state.sales.find(s=>s.id===id);if(!sale)return;
+ const client=state.clients.find(c=>c.id===sale.client_id);
+ const canUseClient=!sale.delivery_address||sale.delivery_address===client?.address;
+ const latitude=sale.delivery_latitude??(canUseClient?client?.latitude:null),longitude=sale.delivery_longitude??(canUseClient?client?.longitude:null);
+ const url=geoMapsLink(latitude,longitude,sale.delivery_address||client?.address);if(!url)return;
+ card.querySelectorAll('a[href*="google.com/maps"]').forEach(a=>a.remove());
+ const link=document.createElement('a');link.className='btn ghost';link.target='_blank';link.rel='noopener noreferrer';link.href=url;link.textContent=geoPair(latitude,longitude)?'Ir ao ponto exato · Google Maps':'Abrir rota · Google Maps';card.append(link);
+ });
+};
+const renderFieldBeforeGeo=renderField;
+renderField=function(){
+ renderFieldBeforeGeo();
+ const visits=state.visits.slice(0,50);
+ $('#fieldList')?.querySelectorAll('.list-row').forEach((row,index)=>{
+ const visit=visits[index],client=state.clients.find(c=>c.id===visit?.client_id),sale=state.sales.find(s=>s.id===visit?.sale_id);
+ const address=visit?.address||sale?.delivery_address||client?.address;
+ const same=!address||address===client?.address;
+ const latitude=sale?.delivery_latitude??(same?client?.latitude:null),longitude=sale?.delivery_longitude??(same?client?.longitude:null);
+ const url=geoMapsLink(latitude,longitude,address);if(!url)return;
+ const link=document.createElement('a');link.href=url;link.target='_blank';link.rel='noopener noreferrer';link.className='btn ghost';link.textContent='Abrir destino no Google Maps';row.append(link);
+ });
+};
+const geoStyle=document.createElement('style');geoStyle.textContent='.geo-fields{border:1px solid var(--line);border-radius:10px;padding:12px;margin:10px 0;min-width:0}.geo-fields legend{font-size:12px;color:var(--muted);padding:0 5px}.geo-fields a{display:inline-block;text-decoration:none}.geo-fields [role=status]{font-size:12px;color:var(--danger)}';document.head.append(geoStyle);
+
+
+function clientLinkedNotes(clientId,archived=false){
+ return (state.notes||[]).filter(note=>note.client_id===clientId&&Boolean(note.archived)===archived).slice().sort((a,b)=>String(b.updated_at).localeCompare(String(a.updated_at)));
+}
+function clientNoteCards(rows){
+ return rows.map(note=>'<article class="note-card list-row"><small>'+esc(new Date(note.updated_at).toLocaleString('pt-BR'))+' • '+esc(employeeName(note.owner_id))+'</small><h4>'+esc(note.title)+'</h4><p>'+esc(note.body)+'</p>'+(note.sale_id?'<p class="help">Venda #'+esc(note.sale_id.slice(0,8).toUpperCase())+'</p>':'')+'<div class="row"><button class="btn ghost" data-note-edit="'+note.id+'">Abrir / editar</button><button class="btn ghost" data-note-archive="'+note.id+'">'+(note.archived?'Restaurar':'Arquivar')+'</button></div></article>').join('');
+}
+const clientDetailBeforeLinkedNotes=renderClientDetail;
+renderClientDetail=function(){
+ clientDetailBeforeLinkedNotes();
+ const client=state.clients.find(c=>c.id===selectedClientId),root=$('#clientDetailContent');
+ if(!client||!root)return;
+ const tabs=$('#clientDetail .client-tabs');
+ if(tabs&&!tabs.querySelector('[data-client-tab="notes"]')){
+  const button=document.createElement('button');button.dataset.clientTab='notes';button.textContent='Anotações';button.className=clientDetailTab==='notes'?'active':'';tabs.append(button);
+ }
+ if(clientDetailTab==='notes')root.replaceChildren();
+ if(clientDetailTab==='general'){
+  const url=geoMapsLink(client.latitude,client.longitude,client.address);
+  if(url){const link=document.createElement('a');link.className='btn ghost';link.target='_blank';link.rel='noopener noreferrer';link.href=url;link.textContent=geoPair(client.latitude,client.longitude)?'Abrir ponto exato no Google Maps':'Abrir endereço no Google Maps';root.append(link);}
+ }
+ if(!['general','notes'].includes(clientDetailTab))return;
+ const rows=clientLinkedNotes(client.id),archived=clientLinkedNotes(client.id,true),panel=document.createElement('section');panel.id='clientNotesPanel';panel.className='panel';panel.style.marginTop='18px';
+ panel.innerHTML='<div class="panel-head"><div><h3>Anotações do cliente</h3><p>Atendimentos e informações vinculadas a este cadastro.</p></div><button type="button" class="btn primary" id="clientNewNote">+ Nova anotação</button></div>'+
+ (rows.length?clientNoteCards(rows):empty('Nenhuma anotação vinculada a este cliente.'))+
+ (archived.length?'<details><summary>Arquivadas ('+archived.length+')</summary>'+clientNoteCards(archived)+'</details>':'');
+ root.append(panel);$('#clientNewNote').onclick=()=>noteEditor(null,client.id,'',true);
 };
 
 // O site abre diretamente no navegador. Remove somente o cache antigo do Helion.
