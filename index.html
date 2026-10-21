@@ -1560,14 +1560,14 @@ const personalFeatures=hasFeature;hasFeature=function(f){if(cashManager()&&['cas
 const mobileMode=new URLSearchParams(location.search).get('view')==='desktop'?{matches:false,addEventListener(){}}:window.matchMedia('(max-width:760px)'),mobilePages=[['home','Início'],['orders','Entregas'],['field','Venda externa'],['agenda','Agenda'],['announcements','Avisos']];
 function mobileNavigation(){if(!state.profile)return;const bottom=$('.bottom-nav');bottom.innerHTML=mobilePages.filter(([p])=>p!=='announcements'&&(p==='home'||hasFeature(p))).map(([p,l])=>'<a data-page="'+p+'" href="#'+p+'" class="'+(state.currentPage===p?'active':'')+'">'+uiIcon(p)+'<span>'+l+'</span></a>').join('');bottom.style.gridTemplateColumns='repeat('+bottom.children.length+',1fr)';if(mobileMode.matches)$('#mobileMenuGrid').innerHTML=mobilePages.filter(([p])=>p==='home'||hasFeature(p)).map(([p,l])=>'<button data-go="'+p+'">'+uiIcon(p)+esc(l)+'</button>').join('');}
 const personalRefresh=refreshNavigation;refreshNavigation=function(){personalRefresh();mobileNavigation();};
-const mobileGo=go;go=function(page){if(mobileMode.matches&&!mobilePages.some(([p])=>p===page)&&page!=='more')page='home';const result=mobileGo(page);mobileNavigation();if(page==='orders')renderOrders();return result;};
+const mobileGo=go;go=function(page){const result=mobileGo(page);mobileNavigation();if(page==='orders')renderOrders();return result;};
 function renderMobileHome(){if(!state.profile)return;let root=$('#mobileHomeSales');if(!root){root=document.createElement('article');root.id='mobileHomeSales';root.className='panel mobile-home-sales';$('#page-home .page-head').after(root);}const month=todayISO().slice(0,7),sales=state.sales.filter(s=>s.seller_id===state.profile.id&&cashDate(s.created_at).slice(0,7)===month&&s.status==='closed');root.innerHTML='<small>Suas vendas neste mês</small><b>'+money(sales.reduce((a,s)=>a+Number(s.total),0))+'</b><p>'+sales.length+' vendas • '+new Date(month+'-15T12:00:00').toLocaleDateString('pt-BR',{month:'long',year:'numeric'})+'</p>';$('#homeTasks')?.closest('article')?.classList.add('mobile-keep-panel');$('#promotionPosts')?.closest('article')?.classList.add('mobile-keep-panel');}
 const mobileHome=renderHome;renderHome=function(){mobileHome();renderMobileHome();};
 const personalOrders=renderOrders;renderOrders=function(){if(cashManager()&&!mobileMode.matches){personalOrders();return;}const rows=state.deliveryOrders||[];$('#ordersList').innerHTML=rows.length?rows.map(s=>'<article class="order-card"><h3>'+esc(s.client_name||'Cliente')+'</h3><p>'+(s.fulfillment_type==='pickup_store'?'Retirada na loja':'Entrega')+' • '+(s.separation_status==='pending'?'A separar':'Separado')+'</p><p><b>Endereço:</b> '+esc(s.delivery_address||'Endereço não informado')+'</p>'+(s.phone?'<a class="btn ghost" href="tel:'+String(s.phone).replace(/[^+\d]/g,'')+'">Ligar para o cliente</a>':'')+(s.delivery_address?'<a class="btn ghost" target="_blank" rel="noopener noreferrer" href="https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(s.delivery_address)+'">Ver endereço no mapa</a>':'')+(s.scheduled_delivery_at?'<p>Agendado: '+new Date(s.scheduled_delivery_at).toLocaleString('pt-BR')+'</p>':'')+(s.items||[]).map(i=>'<div class="list-row">'+esc(i.description)+' • '+Number(i.quantity)+' '+esc(i.unit||'')+'</div>').join('')+'<div class="doc-actions"><button class="btn primary" data-delivery-action="'+(s.separation_status==='pending'?'separate':'complete')+'" data-delivery-id="'+s.id+'">'+(s.separation_status==='pending'?'Marcar separado':'Confirmar entrega / retirada')+'</button></div></article>').join(''):empty('Nenhum pedido aguardando entrega ou retirada.');};
 document.addEventListener('click',e=>{const b=e.target.closest('[data-delivery-action]');if(!b)return;const operation=b.dataset.deliveryAction,id=b.dataset.deliveryId;showModal(modalHead(operation==='complete'?'Confirmar entrega / retirada':'Confirmar separação','Confira os produtos e o cliente antes de confirmar.')+(operation==='complete'?'<label>Quem recebeu / observação<textarea id="deliveryNotes"></textarea></label>':'')+'<p role="status" id="deliveryStatus"></p><button class="btn primary" id="deliveryConfirm">Confirmar</button>');$('#deliveryConfirm').onclick=async()=>{$('#deliveryConfirm').disabled=true;try{const r=await db.rpc('helion_delivery_update',{sale_uuid:id,operation,notes:$('#deliveryNotes')?.value.trim()||null});if(r.error)throw r.error;closeModal();await loadAll();toast('Pedido atualizado.');}catch(error){$('#deliveryStatus').textContent=error.message;$('#deliveryConfirm').disabled=false;}};});
 const personalLoad=loadAll;loadAll=async function(){await personalLoad();if(hasFeature('orders')){const r=await db.rpc('helion_delivery_orders');if(r.error){state.deliveryOrders=[];toast('Não foi possível carregar os pedidos de entrega.');}else state.deliveryOrders=Array.isArray(r.data)?r.data:state.sales.filter(s=>s.fulfillment_status!=='completed').map(s=>({...s,client_name:clientName(s.client_id),items:state.saleItems.filter(i=>i.sale_id===s.id)}));}else state.deliveryOrders=[];renderMobileHome();renderOrders();refreshNavigation();};
-mobileMode.addEventListener('change',()=>{if(!state.profile)return;refreshNavigation();if(mobileMode.matches&&!mobilePages.some(([p])=>p===state.currentPage))go('home');else renderOrders();});
-const mobileStyles=document.createElement('style');mobileStyles.textContent='.mobile-home-sales{display:none}#ordersList a.btn{display:inline-flex;text-decoration:none;margin-right:7px;margin-bottom:9px}@media(max-width:760px){.mobile-home-sales{display:block;margin-bottom:12px}.mobile-home-sales b{display:block;font-size:30px;color:#00834a;margin:8px 0}.mobile-home-sales p{font-size:12px;color:#6a7b95;margin:0}#page-home>.kpi-grid,#homeQuick,#homeCharts,#homeHistory,#activitySummary,#homeBirthdays,#page-home .home-main>article:not(.mobile-keep-panel),#page-home .home-right>article:not(.mobile-keep-panel){display:none!important}#mainNav [data-page]:not([data-page="home"]):not([data-page="orders"]):not([data-page="field"]):not([data-page="agenda"]):not([data-page="announcements"]):not([data-page="prices"]){display:none!important}.topbar{height:64px;grid-template-rows:1fr}.topbar>.global-search{display:none!important}#page-field .page-head h2{font-size:21px}#ordersList .order-card{padding:16px}#ordersList .order-card p{line-height:1.6}.bottom-nav a{min-width:0}.bottom-nav a span{font-size:10px;text-align:center}.home-main,.home-right{min-width:0}}';document.head.append(mobileStyles);
+mobileMode.addEventListener('change',()=>{if(!state.profile)return;refreshNavigation();renderOrders();});
+const mobileStyles=document.createElement('style');mobileStyles.textContent='.mobile-home-sales{display:none}#ordersList a.btn{display:inline-flex;text-decoration:none;margin-right:7px;margin-bottom:9px}@media(max-width:760px){.mobile-home-sales{display:block;margin-bottom:12px}.mobile-home-sales b{display:block;font-size:30px;color:#00834a;margin:8px 0}.mobile-home-sales p{font-size:12px;color:#6a7b95;margin:0}#page-home>.kpi-grid,#homeQuick,#homeCharts,#homeHistory,#activitySummary,#homeBirthdays,#page-home .home-main>article:not(.mobile-keep-panel),#page-home .home-right>article:not(.mobile-keep-panel){display:none!important}.topbar{height:64px;grid-template-rows:1fr}.topbar>.global-search{display:none!important}#page-field .page-head h2{font-size:21px}#ordersList .order-card{padding:16px}#ordersList .order-card p{line-height:1.6}.bottom-nav a{min-width:0}.bottom-nav a span{font-size:10px;text-align:center}.home-main,.home-right{min-width:0}}';document.head.append(mobileStyles);
 
 // Referências comerciais: editor em áreas e apresentação com dados reais.
 const budgetReferenceStyle=document.createElement('style');
@@ -2339,6 +2339,76 @@ renderPrintPreview=function(){
  root.insertAdjacentHTML('beforeend','<section data-project-adjustments-print style="padding:12px;margin-top:12px;border:1px solid #ddd"><h4>Ajustes comerciais</h4><p>Aplicação: '+(w.adjustment_scope==='all'?'projeto inteiro, incluindo serviços e gastos repassados':'peças')+'</p><p>Desconto: '+Number(w.discount_percent||0).toLocaleString('pt-BR')+'% • Acréscimo: '+Number(w.addition_percent||0).toLocaleString('pt-BR')+'%</p><p>Desconto em R$: '+money(w.discount_amount||0)+' • Acréscimo em R$: '+money(w.addition_amount||0)+'</p><b>Total do documento: '+money(total.total)+'</b></section>');
 };
 const adjustmentStyle=document.createElement('style');adjustmentStyle.textContent='#pwGlobalAdjustments[hidden]{display:none!important}#pwGlobalAdjustments>label{margin-bottom:12px}.pw-adjustment-total{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:14px;background:#edf8f0;border-radius:9px;color:#075a35}.pw-adjustment-total b{font-size:24px}#pwAdjustmentError{color:var(--danger)}.pw-financial[data-project-tab="summary"]{grid-template-columns:minmax(0,1fr)}';document.head.append(adjustmentStyle);
+
+
+function helionAvailableModules(){
+ return Array.from(document.querySelectorAll('#mainNav [data-page]')).filter(link=>!link.hidden&&(link.dataset.page==='home'||hasFeature(link.dataset.feature||link.dataset.page))).map(link=>({page:link.dataset.page,label:(link.querySelector('.nav-label')?.textContent||link.textContent).trim()})).filter((entry,index,rows)=>rows.findIndex(row=>row.page===entry.page)===index);
+}
+const mobileNavigationBeforeUnified=mobileNavigation;
+mobileNavigation=function(){
+ mobileNavigationBeforeUnified();if(!state.profile)return;
+ const grid=$('#mobileMenuGrid');if(grid)grid.innerHTML=helionAvailableModules().map(m=>'<button type="button" data-go="'+esc(m.page)+'">'+esc(m.label)+'</button>').join('');
+ const nav=$('.bottom-nav');
+ if(nav&&!nav.querySelector('[data-page="more"]')){const link=document.createElement('a');link.href='#more';link.dataset.page='more';link.innerHTML=uiIcon('menu')+'<span>Todos</span>';nav.append(link);}
+ if(nav)nav.style.gridTemplateColumns='repeat('+nav.children.length+',minmax(66px,1fr))';
+};
+let floatingNoteId=null,floatingSaving=false;
+function floatingDraftKey(){return 'helion-note-draft:'+state.profile.company_id+':'+state.profile.id;}
+function keepFloatingNoteDraft(){
+ try{sessionStorage.setItem(floatingDraftKey(),JSON.stringify({id:floatingNoteId,title:$('#floatingNoteTitle').value,body:$('#floatingNoteBody').value,client:$('#floatingNoteClient').value}));}catch{}
+}
+function floatingNotesList(){
+ const root=$('#floatingNotesList');if(!root)return;
+ const rows=(state.notes||[]).filter(n=>!n.archived).slice(0,20);
+ root.innerHTML=rows.length?rows.map(n=>'<button type="button" class="floating-note-item" data-floating-note="'+esc(n.id)+'"><b>'+esc(n.title)+'</b><small>'+esc(n.client_id?clientName(n.client_id):new Date(n.updated_at).toLocaleString('pt-BR'))+'</small></button>').join(''):'<p class="help">Suas notas salvas aparecerão aqui.</p>';
+ root.querySelectorAll('[data-floating-note]').forEach(button=>button.onclick=()=>{
+ if($('#floatingNoteBody').value.trim()||$('#floatingNoteTitle').value.trim()){if(!confirm('Abrir esta nota? O rascunho atual será substituído. Salve primeiro se quiser mantê-lo.'))return;}
+ const note=state.notes.find(n=>n.id===button.dataset.floatingNote);if(!note)return;floatingNoteId=note.id;$('#floatingNoteTitle').value=note.title;$('#floatingNoteBody').value=note.body;$('#floatingNoteClient').value=note.client_id||'';$('#floatingNoteStatus').textContent='Editando nota salva.';keepFloatingNoteDraft();
+ });
+}
+function openFloatingNotes(){
+ if(!state.profile)return;ensureFloatingTools();
+ const panel=$('#floatingNotesPanel'),select=$('#floatingNoteClient'),previous=select.value;
+ select.innerHTML='<option value="">Sem cliente</option>'+state.clients.map(c=>'<option value="'+esc(c.id)+'">'+esc(c.name)+'</option>').join('');
+ select.value=previous;
+ try{const saved=JSON.parse(sessionStorage.getItem(floatingDraftKey())||'null');if(saved){floatingNoteId=saved.id||null;$('#floatingNoteTitle').value=saved.title||'';$('#floatingNoteBody').value=saved.body||'';select.value=saved.client||'';}}catch{}
+ panel.hidden=false;$('#floatingNotesToggle').setAttribute('aria-expanded','true');floatingNotesList();$('#floatingNoteBody').focus();
+}
+function ensureFloatingTools(){
+ if(!state.profile)return;
+ if($('#helionFloatingTools'))return;
+ const tools=document.createElement('aside');tools.id='helionFloatingTools';tools.setAttribute('aria-label','Atalhos da agenda e bloco de notas');
+ tools.innerHTML='<button type="button" id="floatingAgendaToggle" class="btn ghost" title="Abrir agenda">📅 Agenda</button><button type="button" id="floatingNotesToggle" class="btn primary" aria-controls="floatingNotesPanel" aria-expanded="false">✎ Bloco de notas</button>';
+ const panel=document.createElement('section');panel.id='floatingNotesPanel';panel.hidden=true;panel.setAttribute('aria-label','Bloco de notas flutuante');
+ panel.innerHTML='<header><h3>Bloco de notas</h3><button type="button" class="btn ghost" id="floatingNotesClose" aria-label="Minimizar bloco de notas">−</button></header><p class="help">Anote sem sair da tela atual. Salve para guardar no sistema.</p><label>Título<input id="floatingNoteTitle" maxlength="160"></label><label>Cliente (opcional)<select id="floatingNoteClient"><option value="">Sem cliente</option></select></label><label>Anotação<textarea id="floatingNoteBody" maxlength="20000" rows="6"></textarea></label><p id="floatingNoteStatus" role="status" aria-live="polite"></p><div class="row"><button type="button" class="btn primary" id="floatingNoteSave">Salvar anotação</button><button type="button" class="btn ghost" id="floatingNoteNew">Nova nota</button></div><details><summary>Notas salvas</summary><div id="floatingNotesList"></div></details>';
+ document.body.append(tools,panel);
+ $('#floatingNotesToggle').onclick=()=>panel.hidden?openFloatingNotes():$('#floatingNotesClose').click();
+ $('#floatingNotesClose').onclick=()=>{keepFloatingNoteDraft();panel.hidden=true;$('#floatingNotesToggle').setAttribute('aria-expanded','false');};
+ $('#floatingAgendaToggle').onclick=()=>{if($('#modalRoot .modal')){toast('Conclua ou salve a janela aberta antes de ir para a agenda.');return;}go('agenda');};
+ for(const id of ['floatingNoteTitle','floatingNoteBody','floatingNoteClient'])$('#'+id).addEventListener('input',keepFloatingNoteDraft);
+ $('#floatingNoteNew').onclick=()=>{if(floatingSaving)return;if(($('#floatingNoteTitle').value.trim()||$('#floatingNoteBody').value.trim())&&!confirm('Começar uma nova nota? Salve a atual antes, se quiser mantê-la.'))return;floatingNoteId=null;$('#floatingNoteTitle').value='';$('#floatingNoteBody').value='';$('#floatingNoteClient').value='';$('#floatingNoteStatus').textContent='Nova anotação.';keepFloatingNoteDraft();};
+ $('#floatingNoteSave').onclick=saveFloatingNote;
+}
+async function saveFloatingNote(){
+ if(floatingSaving)return;
+ const title=$('#floatingNoteTitle').value.trim(),body=$('#floatingNoteBody').value.trim(),status=$('#floatingNoteStatus');
+ if(!title||!body){status.textContent='Preencha o título e a anotação.';return;}
+ const existing=(state.notes||[]).find(n=>n.id===floatingNoteId);
+ if(floatingNoteId&&!existing){status.textContent='Reabra esta nota pela lista de notas salvas.';return;}
+ floatingSaving=true;$('#floatingNoteSave').disabled=true;status.textContent='Salvando…';
+ const payload={company_id:state.profile.company_id,owner_id:existing?.owner_id||state.profile.id,title,body,client_id:$('#floatingNoteClient').value||null,sale_id:existing?.sale_id||null,archived:existing?.archived||false};
+ try{
+ const query=floatingNoteId?db.from('helion_notes').update(payload).eq('id',floatingNoteId):db.from('helion_notes').insert(payload);
+ const {data,error}=await query.select('*').single();if(error)throw error;
+ state.notes=(state.notes||[]).filter(n=>n.id!==data.id);state.notes.unshift(data);
+ floatingNoteId=null;$('#floatingNoteTitle').value='';$('#floatingNoteBody').value='';$('#floatingNoteClient').value='';keepFloatingNoteDraft();
+ renderNotes();renderClientDetail();floatingNotesList();status.textContent='Nota salva no sistema'+(data.client_id?' e no cadastro do cliente.':'.');
+ }catch(error){status.textContent='Não foi possível salvar: '+error.message;keepFloatingNoteDraft();}
+ finally{floatingSaving=false;$('#floatingNoteSave').disabled=false;}
+}
+const refreshBeforeFloating=refreshNavigation;
+refreshNavigation=function(){refreshBeforeFloating();ensureFloatingTools();};
+const floatingStyle=document.createElement('style');floatingStyle.textContent='#helionFloatingTools{position:fixed;right:18px;bottom:18px;display:flex;gap:8px;z-index:85}#floatingNotesPanel{position:fixed;right:18px;bottom:76px;width:min(390px,calc(100vw - 24px));max-height:calc(100dvh - 105px);overflow:auto;background:#fff;border:1px solid #c6dbc9;border-radius:14px;padding:16px;box-shadow:0 14px 50px #163c3433;z-index:86}#floatingNotesPanel[hidden]{display:none!important}#floatingNotesPanel header{display:flex;align-items:center;justify-content:space-between}#floatingNotesPanel header h3{margin:0}#floatingNotesPanel label{margin-top:10px}#floatingNotesPanel textarea{resize:vertical;min-height:120px}#floatingNotesPanel details{margin-top:14px}#floatingNoteStatus{font-size:12px}.floating-note-item{display:block;width:100%;text-align:left;border:1px solid var(--line);border-radius:8px;background:#f8fbf8;padding:10px;margin-top:7px}.floating-note-item small{display:block;margin-top:4px;color:var(--muted)}@media(max-width:760px){#mainNav [data-page]:not([hidden]){display:flex!important}#helionFloatingTools{right:10px;bottom:calc(78px + env(safe-area-inset-bottom))}#floatingNotesPanel{right:12px;bottom:calc(132px + env(safe-area-inset-bottom));max-height:calc(100dvh - 160px)}.bottom-nav{overflow-x:auto;justify-content:initial}}@media print{#helionFloatingTools,#floatingNotesPanel{display:none!important}}';document.head.append(floatingStyle);
 
 // O site abre diretamente no navegador. Remove somente o cache antigo do Helion.
 if ('serviceWorker' in navigator) {
