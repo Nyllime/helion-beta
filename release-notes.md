@@ -23,3 +23,13 @@ A mudança de classificação contábil foi testada no banco com registros sint�
 Para executar o teste da publicação: `node tests/official-release.cjs`.
 
 O acesso e a sincronização dos registros exigem conexão com a internet. Arquivos de projeto têm limite de 10 MB por arquivo. Esta publicação não altera os dados reais da empresa.
+
+## Organização de navegação e início — 21/10/2026
+
+- Ajustes organizado nas abas Empresa, Equipe, Funções, Descontos e autorizações, Documentos e Sistema; Equipe acessível pela aba, com as mesmas permissões existentes.
+- Consultar preços imediatamente após Caixa; Campo disponível no celular.
+- Removidos os quatro atalhos do início e Todos da barra inferior; ícones próprios de Notas e Crediário.
+- Clientes do novo projeto aparecem apenas durante a pesquisa. Continuar sem cliente avança para materiais, preserva os dados e informa claramente quando falta o nome obrigatório do projeto.
+- Instalar Helion disponível antes do login, com instalação opcional do navegador e instruções de tela inicial para Android e iPhone. Continua usando a mesma versão oficial e os mesmos dados.
+
+Verificação adicional: `node tests/project-start.cjs` e `node tests/install-shortcut.cjs`, além da conferência de abas e navegação no navegador com banco simulado.
