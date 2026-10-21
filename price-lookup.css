@@ -1,0 +1,36 @@
+#page-prices .price-search-panel{display:grid;gap:14px;max-width:900px;margin:0 auto 16px}
+#page-prices .price-search-panel h3{margin:0}
+.price-photo-actions{display:flex;flex-wrap:wrap;gap:8px}
+.price-photo-actions .btn{flex:1;min-width:130px}
+.price-photo-preview{display:flex;align-items:center;gap:14px;padding:12px;border:1px solid var(--line);border-radius:10px}
+.price-photo-preview img{width:100px;height:100px;object-fit:contain;border-radius:8px;background:#f5f8fc}
+.price-photo-preview p{margin:0 0 8px}
+.price-results{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:12px;max-width:900px;margin:auto}
+.price-result{display:grid;grid-template-columns:80px minmax(0,1fr);gap:12px;align-items:center;text-align:left;width:100%;background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px;color:var(--text)}
+.price-result:hover,.price-result:focus-visible{border-color:var(--green2);background:#f4fbf7}
+.price-result img,.price-result-placeholder{width:80px;height:80px;object-fit:contain;border-radius:8px;background:#f5f8fc}
+.price-result-placeholder{display:grid;place-items:center;font-size:28px;color:var(--muted)}
+.price-result-copy{min-width:0;overflow-wrap:anywhere}
+.price-result-copy>*{display:block}
+.price-result-copy b{font-size:14px;margin:4px 0}
+.price-result-copy strong{font-size:21px;color:var(--green2);margin-top:8px}
+.price-result-copy small{color:var(--muted);line-height:1.5}
+.price-status{margin:0;line-height:1.5;color:var(--muted);font-size:13px}
+.price-status:empty{display:none}
+.price-detail-image{display:block;max-width:100%;max-height:260px;margin:0 auto 18px;object-fit:contain}
+.price-detail-value{font-size:30px;color:var(--green2);font-weight:800;margin:16px 0}
+.price-detail-meta{display:grid;grid-template-columns:auto 1fr;gap:8px 14px}
+.price-detail-meta dt{color:var(--muted)}
+.price-detail-meta dd{margin:0;overflow-wrap:anywhere}
+.price-home-shortcut{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:12px}
+.price-home-shortcut p{margin:5px 0 0;color:var(--muted);font-size:12px}
+#page-prices .price-more{display:block;margin:16px auto}
+@media(max-width:760px){
+  #mainNav [data-page="prices"]{display:flex!important}
+  #mainNav [data-page="prices"][hidden]{display:none!important}
+  .price-results{grid-template-columns:1fr}
+  #page-prices .page-head h2{font-size:22px}
+  #priceQuery{font-size:16px;min-height:48px}
+  .price-photo-actions .btn{min-height:46px}
+  .price-home-shortcut .btn{flex-shrink:0}
+}
