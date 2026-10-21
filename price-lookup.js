@@ -188,6 +188,18 @@
       return data.map(n => n / norm);
     } finally { tensor.dispose(); }
   }
+  function selectPhotoMatches(scored) {
+    // A ranked list alone always has a first item, even for unrelated photos.
+    // These conservative gates are retrieval limits, not calibrated confidence.
+    const ranked = scored.filter(item => Number.isFinite(item.score) && item.score >= 0 && item.score <= 1.00001)
+      .sort((a, b) => b.score - a.score);
+    const best = ranked[0]?.score;
+    if (best === undefined || best < 0.80) return [];
+    // If the stored photo is effectively identical, don't pad its result with
+    // weaker pictures. Otherwise only keep a small cluster near the best match.
+    const minimum = best >= 0.985 ? Math.max(0.985, best - 0.015) : Math.max(0.80, best - 0.06);
+    return ranked.filter(item => item.score >= minimum).slice(0, 4).map(item => item.id);
+  }
   async function searchPhoto(file) {
     if (!file) return;
     resetPhoto(); $('#priceQuery').value = ''; limit = 20;
@@ -209,6 +221,7 @@
       const network = await model();
       if (!valid()) return;
       const query = await embedding(network, queryImage);
+      if (!valid()) return;
       if (cacheOwner !== context) { vectors.clear(); cacheOwner = context; }
       const scored = []; let failed = 0;
       for (let index = 0; index < products.length; index++) {
@@ -229,9 +242,14 @@
         await tf.nextFrame();
       }
       if (!valid()) return;
-      photoMatches = scored.sort((a, b) => b.score - a.score).slice(0, 6).map(p => p.id);
+      photoMatches = selectPhotoMatches(scored);
       render();
-      status(scored.length ? 'Produtos mais parecidos. Confira a foto, o código e a medida; a imagem pode não corresponder ao produto.' + (failed ? ' ' + failed + ' foto(s) do cadastro não puderam ser comparadas.' : '') : 'Não foi possível comparar as fotos cadastradas. Pesquise pelo nome/código ou tente outra foto.');
+      const unavailable = failed ? ' ' + failed + ' foto(s) do cadastro não puderam ser comparadas.' : '';
+      status(photoMatches.length
+        ? photoMatches.length + ' produto(s) com foto semelhante. Confira o código, a medida e a embalagem antes de escolher.' + unavailable
+        : scored.length
+          ? 'Nenhum produto com semelhança suficiente foi encontrado. Fotografe mais de perto, com o produto inteiro e fundo simples, ou pesquise pelo nome/código.' + unavailable
+          : 'Não foi possível comparar as fotos cadastradas. Pesquise pelo nome/código ou tente outra foto.');
     } catch (error) {
       if (valid()) status(error.message || 'Não foi possível pesquisar esta foto. Tente novamente ou use o nome/código.');
     } finally { if (token === job) $('#priceCancel').hidden = true; }
@@ -248,3 +266,4 @@
   render();
   if (state.profile) { refreshNavigation(); renderHome(); }
 })();
+

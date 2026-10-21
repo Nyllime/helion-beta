@@ -126,8 +126,16 @@
   renderResetRequests=function(...args){const result=beforeReset.apply(this,args);drawTabs();return result;};
   const beforeHome=renderHome;
   renderHome=function(...args){const result=beforeHome.apply(this,args);const quick=document.getElementById('homeQuick');if(quick)quick.hidden=true;return result;};
+  // Also enforce the empty-search rule on old project-entry renderers retained by a tab.
+  const beforeProjectStart=beginProjectWithDetails;
+  beginProjectWithDetails=function(...args){
+    const result=beforeProjectStart.apply(this,args),input=document.getElementById('projectStartSearch'),results=document.getElementById('projectStartResults');
+    if(input&&results){const gate=()=>{const hasQuery=!!input.value.trim();results.hidden=!hasQuery;results.dataset.hasQuery=String(hasQuery);if(!hasQuery)results.replaceChildren();};input.addEventListener('input',gate);gate();}
+    return result;
+  };
   const style=document.createElement('style');style.id='settings-navigation-style';style.textContent=`
     #homeQuick,#mainNav [data-page="team"],.bottom-nav [data-page="more"],#mainNav [hidden]{display:none!important}
+    #projectStartResults:not([data-has-query="true"]){display:none!important}
     .settings-tabs{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 20px;padding:4px 0;align-items:center}
     .settings-tabs button{padding:10px 15px;min-height:42px;border:1px solid #d8e3ee;border-radius:8px;background:#fff;color:#334960;font-weight:650;cursor:pointer}
     .settings-tabs button.active{background:#00874b;border-color:#00874b;color:white}
